@@ -1,0 +1,204 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Sora:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+
+
+@layer base {
+  :root {
+    --background: 260 15% 5%;
+    --foreground: 0 0% 98%;
+    --card: 260 15% 7%;
+    --card-foreground: 0 0% 98%;
+    --popover: 260 15% 7%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 280 80% 65%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 260 10% 15%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 260 10% 15%;
+    --muted-foreground: 260 10% 70%;
+    --accent: 200 83% 58%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 260 10% 15%;
+    --input: 260 10% 15%;
+    --ring: 260 10% 83.9%;
+    --radius: 1rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border selection:bg-white/10 selection:text-white;
+    font-family: 'Poppins', 'Inter', 'Sora', sans-serif;
+  }
+  
+  body {
+    @apply bg-background text-foreground antialiased overflow-x-hidden;
+    font-feature-settings: "ss01", "ss02", "cv01", "cv02", "cv03";
+    background-image: radial-gradient(
+      circle at top right,
+      hsl(260, 15%, 10%),
+      hsl(260, 15%, 5%)
+    );
+    background-attachment: fixed;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold tracking-wider;
+    font-family: 'Sora', 'Poppins', sans-serif;
+  }
+
+  h1 {
+    @apply text-4xl sm:text-5xl md:text-6xl;
+    letter-spacing: -0.5px;
+  }
+
+  h2 {
+    @apply text-3xl sm:text-4xl; 
+    letter-spacing: -0.3px;
+  }
+
+  h3 {
+    @apply text-2xl sm:text-3xl;
+  }
+}
+
+@layer utilities {
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  .glass-morphism {
+    @apply backdrop-blur-xl bg-white/5 border border-white/10 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.3)];
+  }
+  
+  .neo-blur {
+    @apply backdrop-blur-2xl bg-black/40 border border-white/10;
+  }
+  
+  .text-gradient {
+    @apply bg-gradient-to-br from-white via-white/90 to-white/70 bg-clip-text text-transparent;
+  }
+  
+  .text-gradient-purple {
+    @apply bg-gradient-to-br from-neon-purple via-neon-pink to-neon-purple/70 bg-clip-text text-transparent;
+  }
+
+  .glow-blue {
+    box-shadow: 0 0 20px 2px rgba(58, 134, 255, 0.4);
+  }
+
+  .glow-purple {
+    box-shadow: 0 0 20px 2px rgba(139, 92, 246, 0.5);
+  }
+
+  .glow-pink {
+    box-shadow: 0 0 20px 2px rgba(236, 72, 153, 0.5);
+  }
+
+  .glow-green {
+    box-shadow: 0 0 20px 2px rgba(16, 185, 129, 0.4);
+  }
+
+  .glow-text-blue {
+    text-shadow: 0 0 10px rgba(58, 134, 255, 0.7);
+  }
+
+  .glow-text-purple {
+    text-shadow: 0 0 15px rgba(139, 92, 246, 0.8);
+  }
+
+  .glow-text-pink {
+    text-shadow: 0 0 15px rgba(236, 72, 153, 0.8);
+  }
+
+  .glow-text-green {
+    text-shadow: 0 0 10px rgba(16, 185, 129, 0.7);
+  }
+  
+  .curved-top {
+    position: relative;
+  }
+  
+  .curved-top::before {
+    content: '';
+    position: absolute;
+    top: -50px;
+    left: 0;
+    width: 100%;
+    height: 100px;
+    background: inherit;
+    border-radius: 100% 100% 0 0 / 100% 100% 0 0;
+  }
+  
+  .curved-bottom {
+    position: relative;
+  }
+  
+  .curved-bottom::after {
+    content: '';
+    position: absolute;
+    bottom: -50px;
+    left: 0;
+    width: 100%;
+    height: 100px;
+    background: inherit;
+    border-radius: 0 0 100% 100% / 0 0 100% 100%;
+  }
+  
+  .hover-scale {
+    @apply transition-transform duration-300;
+  }
+  
+  .hover-scale:hover {
+    transform: scale(1.05);
+  }
+  
+  .section-divider {
+    @apply relative py-16;
+  }
+  
+  .section-divider::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  }
+  
+  .floating {
+    animation: floating 6s ease-in-out infinite;
+  }
+  
+  @keyframes floating {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-15px); }
+    100% { transform: translateY(0px); }
+  }
+  
+  .pulse-soft {
+    animation: pulse-soft 4s ease-in-out infinite;
+  }
+  
+  @keyframes pulse-soft {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+}
