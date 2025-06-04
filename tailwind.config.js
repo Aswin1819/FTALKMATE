@@ -1,5 +1,4 @@
-// @type {import('tailwindcss').Config} 
-module.exports = {
+export default {
   darkMode: ["class"],
   content: [
     "./pages/**/*.{js,jsx}",
@@ -7,29 +6,6 @@ module.exports = {
     "./app/**/*.{js,jsx}",
     "./src/**/*.{js,jsx}",
   ],
-  safelist: [
-  "bg-background",
-  "text-foreground",
-  "border-border",
-  "bg-card",
-  "text-card-foreground",
-  "bg-popover",
-  "text-popover-foreground",
-  "bg-primary",
-  "text-primary-foreground",
-  "bg-secondary",
-  "text-secondary-foreground",
-  "bg-muted",
-  "text-muted-foreground",
-  "bg-accent",
-  "text-accent-foreground",
-  "bg-destructive",
-  "text-destructive-foreground",
-  "border-input",
-  "text-muted",
-  "ring-ring",
-],
-
   prefix: "",
   theme: {
     container: {
@@ -75,7 +51,7 @@ module.exports = {
           foreground: "hsl(var(--card-foreground))",
         },
         neon: {
-          blue: "#3a86ff",
+          blue: "#3a86ff", 
           purple: "#8b5cf6",
           pink: "#ec4899",
           green: "#10b981",
@@ -100,11 +76,11 @@ module.exports = {
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
         "pulse-glow": {
-          "0%, 100%": {
+          "0%, 100%": { 
             opacity: "1",
             filter: "brightness(1)",
           },
-          "50%": {
+          "50%": { 
             opacity: "0.8",
             filter: "brightness(1.2)",
           },
@@ -112,7 +88,7 @@ module.exports = {
         "float": {
           "0%, 100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-15px)" },
-        },
+        }
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",

@@ -1,8 +1,10 @@
 import React from 'react';
 import { Button } from "../ui/button";
 import { Mic, Globe } from "lucide-react";
+import { useNavigate } from 'react-router-dom';
 
 const Hero = () => {
+  const navigate = useNavigate();
   return (
     <section className="relative min-h-screen flex items-center justify-center pt-16 overflow-hidden">
       {/* Background Effects - Updated to match the purple gradient in the screenshot */}
@@ -35,6 +37,7 @@ const Hero = () => {
           {/* CTA buttons - kept the same buttons with their effects */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
             <Button 
+              onClick={() => navigate('/auth')}
               className="bg-neon-purple hover:bg-neon-purple/90 text-white text-lg px-8 py-6 glow-purple w-full sm:w-auto transition-all duration-300 hover:scale-105 hover:glow-pink"
               size="lg"
             >

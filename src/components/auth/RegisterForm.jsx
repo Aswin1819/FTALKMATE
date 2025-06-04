@@ -1,4 +1,6 @@
 import React from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { registerUser } from '../../features/auth/authSlice';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -18,7 +20,7 @@ import { useNavigate } from 'react-router-dom';
 
 const registerSchema = z
   .object({
-    name: z.string().min(2, { message: 'Name must be at least 2 characters' }),
+    username: z.string().min(2, { message: 'Name must be at least 2 characters' }),
     email: z.string().email({ message: 'Please enter a valid email address' }),
     password: z.string().min(6, { message: 'Password must be at least 6 characters' }),
     confirmPassword: z.string().min(6, { message: 'Please confirm your password' })
@@ -29,22 +31,29 @@ const registerSchema = z
   });
 
 const RegisterForm = ({ onToggle }) => {
+  const dispatch = useDispatch();
+  const { loading, error } = useSelector((state) => state.auth);
   const navigate = useNavigate();
 
   const form = useForm({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      name: '',
+      username: '',
       email: '',
       password: '',
       confirmPassword: ''
     }
   });
 
-  const onSubmit = (values) => {
-    console.log('Register values:', values);
-    navigate('/dashboard');
-  };
+const onSubmit = (values) => {
+  const { confirmPassword, ...data } = values;
+  console.log("Inside on submit")
+  dispatch(registerUser(data)).unwrap()
+    .then(() => navigate('/otp-verification', { state: { email: values.email } }))
+    .catch((err) => {
+      console.error(err); // Optionally show toast or message
+    });
+};
 
   return (
     <motion.div
@@ -62,7 +71,7 @@ const RegisterForm = ({ onToggle }) => {
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <FormField
             control={form.control}
-            name="name"
+            name="username"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Full Name</FormLabel>

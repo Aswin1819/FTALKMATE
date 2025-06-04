@@ -1,4 +1,6 @@
 import React from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { loginUser } from '../../features/auth/authSlice';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -15,6 +17,8 @@ const loginSchema = z.object({
 });
 
 const LoginForm = ({ onToggle }) => {
+  const dispatch = useDispatch();
+  const { loading, error } = useSelector((state) => state.auth);
   const navigate = useNavigate();
   const form = useForm({
     resolver: zodResolver(loginSchema),
@@ -24,10 +28,13 @@ const LoginForm = ({ onToggle }) => {
     },
   });
 
-  const onSubmit = (values) => {
-    console.log('Login values:', values);
-    navigate('/dashboard');
-  };
+const onSubmit = (values) => {
+  dispatch(loginUser(values)).unwrap()
+    .then(() => navigate('/dashboard'))
+    .catch((err) => {
+      console.error(err); // Optionally show toast or message
+    });
+};
 
   return (
     <motion.div

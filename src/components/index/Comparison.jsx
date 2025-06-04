@@ -20,7 +20,7 @@ const Comparison = () => {
               <tr className="border-b border-white/10">
                 <th className="py-4 px-6 text-left">Features</th>
                 <th className="py-4 px-6 text-center bg-neon-purple/10 rounded-t-lg">
-                  <div className="text-xl font-bold text-white">SpeakLink</div>
+                  <div className="text-xl font-bold text-white">TalkMate</div>
                   <div className="text-sm text-neon-purple glow-text-purple">Our Platform</div>
                 </th>
                 <th className="py-4 px-6 text-center">

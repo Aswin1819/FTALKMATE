@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from "../ui/button";
 import { Globe, Moon, Menu, X } from "lucide-react";
+import { useNavigate } from 'react-router-dom';
 
 const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -25,7 +27,7 @@ const Header = () => {
         {/* Logo */}
         <div className="flex items-center gap-2">
           <div className="h-10 w-10 rounded-full bg-gradient-to-br from-neon-blue via-neon-purple to-neon-pink glow-purple"></div>
-          <span className="font-bold text-xl text-gradient-purple">SpeakLink</span>
+          <span className="font-bold text-xl text-gradient-purple">TalkMate</span>
         </div>
 
         {/* Desktop Navigation */}
@@ -44,7 +46,7 @@ const Header = () => {
           <Button variant="ghost" size="icon" className="rounded-full glass-morphism hover:glow-purple transition-all">
             <Moon className="h-5 w-5 text-neon-purple" />
           </Button>
-          <Button className="bg-neon-purple hover:bg-neon-purple/90 text-white hover:glow-purple transition-all">
+          <Button onClick={() => navigate('/auth')} className="bg-neon-purple hover:bg-neon-purple/90 text-white hover:glow-purple transition-all">
             Sign In
           </Button>
         </div>
