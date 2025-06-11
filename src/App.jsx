@@ -1,30 +1,27 @@
 import './index.css'
-import {BrowserRouter as Router,Routes,Route,Navigate} from 'react-router-dom'
-import Index from './pages/user/Index';
-import Auth from './pages/user/Auth';
-import OTPVerification from './pages/user/OTPVerification';
-import Dashboard from './pages/user/dashboard/Dashboard';
-import DashboardHome from './pages/user/dashboard/DashboardHome';
-import UserProfile from './pages/user/dashboard/UserProfile';
-import React, { useState } from "react";
-const App = ()=>{
+import { BrowserRouter as Router, Routes } from 'react-router-dom'
+import { Provider } from 'react-redux';
+import store from './store/index';
+import { Toaster } from './components/ui/toaster';
+import AuthProvider from './components/routes/AuthProvider'
+import userRoutes from './routes/userRoutes';
 
-  return(
-    <Router>
-      <Routes>
-        <Route path='/' element={<Index/>} />
-        <Route path="/auth" element={<Auth/>}/>
-        <Route path="/otp-verification" element={<OTPVerification/>}/>
-
-        <Route path="/dashboard" element={<Dashboard/>}>
-          <Route index element={<DashboardHome/>} />
-          <Route path="profile" element={<UserProfile/>} />
-        </Route>
-
-      </Routes>
-    </Router>
-  )
-  
-}
+const App = () => {
+  return (
+    <Provider store={store}>
+      <Router>
+        <AuthProvider>
+          <Routes>
+            {/* User Routes */}
+            {userRoutes}
+            {/* Admin Routes */}
+            {/* <AdminRoutes /> */}
+          </Routes>
+          <Toaster />
+        </AuthProvider>
+      </Router>
+    </Provider>
+  );
+};
 
 export default App;

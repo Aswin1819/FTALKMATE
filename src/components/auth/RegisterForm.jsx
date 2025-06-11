@@ -17,13 +17,25 @@ import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Github } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from '../../hooks/use-toast';
 
 const registerSchema = z
   .object({
-    username: z.string().min(2, { message: 'Name must be at least 2 characters' }),
-    email: z.string().email({ message: 'Please enter a valid email address' }),
-    password: z.string().min(6, { message: 'Password must be at least 6 characters' }),
-    confirmPassword: z.string().min(6, { message: 'Please confirm your password' })
+    username: z
+    .string()
+    .min(2, { message: 'Name must be at least 2 characters' })
+    .regex(/^[A-Za-z]+(?: [A-Za-z]+)*$/, {
+    message: 'Full name must contain only letters and single spaces between words',
+  }),
+    email: z
+    .string()
+    .email({ message: 'Please enter a valid email address' }),
+    password: z
+    .string()
+    .min(6, { message: 'Password must be at least 6 characters' }),
+    confirmPassword: z
+    .string()
+    .min(6, { message: 'Please confirm your password' })
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",
@@ -47,11 +59,22 @@ const RegisterForm = ({ onToggle }) => {
 
 const onSubmit = (values) => {
   const { confirmPassword, ...data } = values;
-  console.log("Inside on submit")
-  dispatch(registerUser(data)).unwrap()
-    .then(() => navigate('/otp-verification', { state: { email: values.email } }))
+  dispatch(registerUser(data))
+    .unwrap()
+    .then((res) => {
+      toast({
+        title: "Registration Successful",
+        description: "Please check your email for OTP verification.",
+        variant: "default", // or "success" if you add a variant
+      });
+      navigate('/otp-verification', { state: { email: values.email } });
+    })
     .catch((err) => {
-      console.error(err); // Optionally show toast or message
+      toast({
+        title: "Registration Failed",
+        description: err?.message || "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
     });
 };
 
@@ -150,7 +173,7 @@ const onSubmit = (values) => {
         </form>
       </Form>
 
-      <div className="mt-6 relative">
+      {/* <div className="mt-6 relative">
         <div className="absolute inset-0 flex items-center">
           <div className="w-full border-t border-white/10"></div>
         </div>
@@ -181,7 +204,7 @@ const onSubmit = (values) => {
           <Github className="w-5 h-5 mr-2" />
           GitHub
         </Button>
-      </div>
+      </div> */}
 
       <div className="mt-6 text-center">
         <p className="text-sm text-gray-400">

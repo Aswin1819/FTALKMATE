@@ -28,8 +28,11 @@ import {
 } from "../../../components/ui/select";
 import { Pencil, Plus, X } from 'lucide-react';
 import { toast } from '../../../hooks/use-toast';
+import { useDispatch,useSelector } from 'react-redux';
 
 const UserProfile = () => {
+  const dispatch = useDispatch();
+  const user = useSelector((state) => state.auth.user);
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [bioText, setBioText] = useState(
     "Language enthusiast passionate about learning new cultures. I love connecting with people worldwide!"
@@ -165,12 +168,12 @@ const UserProfile = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="flex items-center gap-2">
-                        <h2 className="text-2xl font-bold">John Doe</h2>
+                        <h2 className="text-2xl font-bold">{user?.username || "Guest"}</h2>
                         <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
                       </div>
-                      <p className="text-gray-400 text-sm">@johndoe</p>
+                      <p className="text-gray-400 text-sm">@{user?.username || "guest"}</p>
                     </div>
                   </div>
                   

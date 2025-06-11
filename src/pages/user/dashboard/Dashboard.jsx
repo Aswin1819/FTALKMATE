@@ -20,8 +20,9 @@ import {
 import { Button } from '../../../components/ui/button';
 import { BellIcon } from 'lucide-react';
 import { Badge } from '../../../components/ui/badge';
-import { logout } from "../../../features/auth/authSlice";
+import { logoutUser } from '../../../features/auth/authSlice';
 import { useDispatch } from 'react-redux';
+import { toast } from '../../../hooks/use-toast';
 
 // Sample notifications data
 const sampleNotifications = [
@@ -89,12 +90,28 @@ const Dashboard = () => {
 
   };
 
-  const confirmLogout = () => {
-    dispatch(logout());
-    console.log('User logged out');
-    navigate('/auth');
-    setShowLogoutDialog(false);
-  };
+  const confirmLogout = async ()=>{
+    try{
+      await dispatch(logoutUser()).unwrap();
+      toast({
+        title:"Logout successfully",
+        description:"You are always welcome",
+        variant:"success"
+      })
+      console.log("User log out")
+      navigate('/auth')
+    }catch (err){
+      toast({
+        title:"Logout Failed",
+        description:"Somehting went wrong!!",
+        variant:"error"
+      })
+      console.log("logout failed")
+    }finally{
+      setShowLogoutDialog(false);
+    }
+  }
+
 
   const unreadNotificationsCount = notifications.filter(n => !n.read).length;
 

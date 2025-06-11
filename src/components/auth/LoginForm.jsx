@@ -10,6 +10,8 @@ import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Github } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from '../../hooks/use-toast';
+
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email address' }),
@@ -29,10 +31,22 @@ const LoginForm = ({ onToggle }) => {
   });
 
 const onSubmit = (values) => {
-  dispatch(loginUser(values)).unwrap()
-    .then(() => navigate('/dashboard'))
+  dispatch(loginUser(values)).unwrap()  
+    .then(()=>{
+      toast({
+        title:"Login Successfull",
+        description : "Welcome to TalkMate.",
+        variant :"success",
+      });
+      navigate('/dashboard');
+    })
     .catch((err) => {
-      console.error(err); // Optionally show toast or message
+      toast({
+        title:"Login Failed",
+        description: err?.message || "Something went wrong!. Please try again.",
+        variant : "destructive"
+      })
+      console.error(err); 
     });
 };
 
@@ -104,7 +118,7 @@ const onSubmit = (values) => {
         </form>
       </Form>
 
-      <div className="mt-6 relative">
+      {/* <div className="mt-6 relative">
         <div className="absolute inset-0 flex items-center">
           <div className="w-full border-t border-white/10"></div>
         </div>
@@ -135,7 +149,7 @@ const onSubmit = (values) => {
           <Github className="w-5 h-5 mr-2" />
           GitHub
         </Button>
-      </div>
+      </div> */}
 
       <div className="mt-6 text-center">
         <p className="text-sm text-gray-400">

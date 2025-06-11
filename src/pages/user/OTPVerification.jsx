@@ -10,6 +10,7 @@ import {
   InputOTPGroup, 
   InputOTPSlot 
 } from '../../components/ui/input-otp';
+import { resendOtp } from '../../features/auth/authSlice';
 
 const OTPVerification = () => {
   const dispatch = useDispatch();

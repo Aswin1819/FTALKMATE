@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
+import axiosInstance from './axiosInstance';
 
 // Adjust baseURL as needed
 const API_URL = 'http://127.0.0.1:8000/api/users';
@@ -35,6 +36,7 @@ export const loginUser = createAsyncThunk(
   }
 );
 
+//verify otp
 export const verifyOtp = createAsyncThunk(
   'auth/verifyOtp',
   async ({ email, otp }, { rejectWithValue }) => {
@@ -47,6 +49,7 @@ export const verifyOtp = createAsyncThunk(
   }
 );
 
+//resend otp
 export const resendOtp = createAsyncThunk(
   'auth/resendOtp',
   async ({ email }, { rejectWithValue }) => {
@@ -59,6 +62,36 @@ export const resendOtp = createAsyncThunk(
   }
 );
 
+//logout user
+export const logoutUser = createAsyncThunk(
+    'auth/logout',
+    async (_, {rejectWithValue}) =>{
+        try{
+            await axios.post(`${API_URL}/logout/`,
+                {},
+                {
+                    withCredentials : true
+                }
+            );
+            return true;
+        }catch (err) {
+            return rejectWithValue(err.response.data);
+        }
+    }
+);
+
+//get current user
+export const getCurrentUser = createAsyncThunk(
+  'auth/getCurrentUser',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.get(`/current-user/`);
+      return response.data;
+    } catch (err) {
+      return rejectWithValue(err.response?.data || { message: 'Failed to fetch user' });
+    }
+  }
+);
 
 
 
@@ -66,19 +99,43 @@ const authSlice = createSlice({
   name: 'auth',
   initialState: {
     user: null,
-    token: null,
     loading: false,
     error: null,
+    isInitialized : false,
   },
   reducers: {
     logout: (state) => {
       state.user = null;
-      state.token = null;
-      localStorage.removeItem('token');
+      state.loading = false;
+      state.error = null;
+
     },
+    clearError:(state)=>{
+      state.error = null;
+    },
+    setInitialized: (state) => {
+      state.isInitialized = true;
+      state.loading = false;
+    }
   },
   extraReducers: (builder) => {
     builder
+      .addCase(getCurrentUser.pending, (state)=>{
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(getCurrentUser.fulfilled, (state,action)=>{
+        state.loading = false;
+        state.user = action.payload.user
+        state.isInitialized = true;
+        state.error = null;
+      })
+      .addCase(getCurrentUser.rejected, (state)=>{
+        state.loading = false;
+        state.user = null;
+        state.isInitialized = true;
+        state.error = action.payload?.message || "Getting current user failed"
+      })
       .addCase(registerUser.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -86,8 +143,7 @@ const authSlice = createSlice({
       .addCase(registerUser.fulfilled, (state, action) => {
         state.loading = false;
         state.user = action.payload.user;
-        state.token = action.payload.token;
-        localStorage.setItem('token', action.payload.token);
+        state.isInitialized = true;
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.loading = false;
@@ -100,8 +156,7 @@ const authSlice = createSlice({
       .addCase(loginUser.fulfilled, (state, action) => {
         state.loading = false;
         state.user = action.payload.user;
-        state.token = action.payload.token;
-        localStorage.setItem('token', action.payload.token);
+        state.isInitialized = true;
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
@@ -114,8 +169,7 @@ const authSlice = createSlice({
       .addCase(verifyOtp.fulfilled, (state, action) => {
         state.loading = false;
         state.user = action.payload.user;
-        state.token = action.payload.token;
-        localStorage.setItem('token', action.payload.token);
+        state.isInitialized = true;
         })
       .addCase(verifyOtp.rejected, (state, action) => {
         state.loading = false;
@@ -131,12 +185,21 @@ const authSlice = createSlice({
         .addCase(resendOtp.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload?.message || 'Failed to resend OTP';
+        })
+        .addCase(logoutUser.fulfilled, (state)=>{
+            state.user = null;
+            state.isInitialized = true;
+        })
+        .addCase(logoutUser.rejected, (state,action)=>{
+            state.error = action.payload;
+            state.user = null
+            state.isInitialized = true;
         });
 
 
   },
 });
 
-export const { logout } = authSlice.actions;
+export const { logout,clearError,setInitialized  } = authSlice.actions;
 export default authSlice.reducer;
 
