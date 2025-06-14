@@ -93,7 +93,75 @@ export const getCurrentUser = createAsyncThunk(
   }
 );
 
+// Verify Password Reset OTP
+export const verifyPasswordResetOtp = createAsyncThunk(
+  'auth/verifyPasswordResetOtp',
+  async ({ email, otp }, { rejectWithValue }) => {
+    try {
+      const response = await axios.post(`${API_URL}/verify-password-reset-otp/`, { email, code: otp });
+      return response.data;
+    } catch (err) {
+      return rejectWithValue(err.response.data);
+    }
+  }
+);
 
+// Resend Password Reset OTP
+export const resendPasswordResetOtp = createAsyncThunk(
+  'auth/resendPasswordResetOtp',
+  async ({ email }, { rejectWithValue }) => {
+    try {
+      const response = await axios.post(`${API_URL}/resend-password-reset-otp/`, { email });
+      return response.data;
+    } catch (err) {
+      return rejectWithValue(err.response.data);
+    }
+  }
+);
+
+// Reset Password
+export const resetPassword = createAsyncThunk(
+  'auth/resetPassword',
+  async ({ email, password }, { rejectWithValue }) => {
+    try {
+      const response = await axios.put(
+        `${API_URL}/reset-password/`,
+        { email, password }
+      );
+      return response.data;
+    } catch (err) {
+      return rejectWithValue(err.response?.data || { message: 'Password reset failed' });
+    }
+  }
+);
+
+// Fetch User Profile
+export const fetchUserProfile = createAsyncThunk(
+  'auth/fetchUserProfile',
+  async (_, { rejectWithValue }) => {
+    try{
+      const response = await axiosInstance.get('/profile/');
+      return response.data;
+    }catch (err) {
+      return rejectWithValue(err.response?.data || { message: 'Failed to fetch user profile'});
+    }
+  }
+);
+
+// Update user profile (avatar, bio)
+export const updateUserProfile = createAsyncThunk(
+  'auth/updateUserProfile',
+  async (formData, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.patch('/profile/update/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      return response.data;
+    } catch (err) {
+      return rejectWithValue(err.response?.data || { message: 'Failed to update profile' });
+    }
+  }
+);
 
 const authSlice = createSlice({
   name: 'auth',
@@ -194,6 +262,43 @@ const authSlice = createSlice({
             state.error = action.payload;
             state.user = null
             state.isInitialized = true;
+        })
+        .addCase(verifyPasswordResetOtp.pending, (state) => {
+          state.loading = true;
+          state.error = null;
+        })
+        .addCase(verifyPasswordResetOtp.fulfilled, (state, action) => {
+          state.loading = false;
+          state.user = action.payload.user;
+          state.isInitialized = true;
+        })
+        .addCase(verifyPasswordResetOtp.rejected, (state, action) => {
+          state.loading = false;
+          state.error = action.payload?.message || 'Password reset OTP verification failed';
+        })
+        .addCase(resendPasswordResetOtp.pending, (state) => {
+          state.loading = true;
+          state.error = null;
+        })
+        .addCase(resendPasswordResetOtp.fulfilled, (state) => {
+          state.loading = false;
+        })
+        .addCase(resendPasswordResetOtp.rejected, (state, action) => {
+          state.loading = false;
+          state.error = action.payload?.message || 'Failed to resend password reset OTP';
+        })
+        .addCase(resetPassword.pending, (state) => {
+          state.loading = true;
+          state.error = null;
+        })
+        .addCase(resetPassword.fulfilled, (state, action) => {
+          state.loading = false;
+          state.user = action.payload.user;
+          state.isInitialized = true;
+        })
+        .addCase(resetPassword.rejected, (state, action) => {
+          state.loading = false;
+          state.error = action.payload?.message || 'Password reset failed';
         });
 
 

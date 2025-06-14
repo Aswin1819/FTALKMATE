@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import Sidebar from '../../../components/dashboard/Sidebar';
 import NotificationsPopover from '../../../components/dashboard/NotificationsPopover';
@@ -20,8 +20,8 @@ import {
 import { Button } from '../../../components/ui/button';
 import { BellIcon } from 'lucide-react';
 import { Badge } from '../../../components/ui/badge';
-import { logoutUser } from '../../../features/auth/authSlice';
-import { useDispatch } from 'react-redux';
+import { getCurrentUser, logoutUser } from '../../../features/auth/authSlice';
+import { useDispatch , useSelector } from 'react-redux';
 import { toast } from '../../../hooks/use-toast';
 
 // Sample notifications data
@@ -67,6 +67,7 @@ const Dashboard = () => {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
   const dispatch = useDispatch();
+  const user = useSelector((state) => state.auth.user); 
   
 
   const toggleSidebar = () => {
@@ -114,6 +115,8 @@ const Dashboard = () => {
 
 
   const unreadNotificationsCount = notifications.filter(n => !n.read).length;
+
+ 
 
   return (
     <div className="min-h-screen bg-[#13071D] flex">
@@ -217,7 +220,7 @@ const Dashboard = () => {
             </DropdownMenu>
             
             <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center text-white font-medium">
-              JD
+              {user?.username?.slice(0, 2)?.toUpperCase() || "U"}
             </div>
           </div>
         </header>

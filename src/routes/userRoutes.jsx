@@ -6,6 +6,7 @@ import OTPVerification from '../pages/user/OTPVerification';
 import Dashboard from '../pages/user/dashboard/Dashboard';
 import DashboardHome from '../pages/user/dashboard/DashboardHome';
 import UserProfile from '../pages/user/dashboard/UserProfile';
+import ResetPassword from '../pages/user/ResetPassword';
 import ProtectedRoute from '../components/routes/ProtectedRoute';
 import PublicRoute from '../components/routes/PublicRoute';
 
@@ -21,6 +22,11 @@ const userRoutes = [
     element={<PublicRoute><OTPVerification /></PublicRoute>} 
     key="otp"
   />,
+  <Route
+    path="/reset-password"
+    element={<PublicRoute><ResetPassword /></PublicRoute>}
+    key="reset-password"
+  />,
   <Route 
     path="/dashboard" 
     element={<ProtectedRoute><Dashboard /></ProtectedRoute>} 
@@ -28,7 +34,7 @@ const userRoutes = [
   >
     <Route index element={<DashboardHome />} />
     <Route path="profile" element={<UserProfile />} />
-  </Route>
+  </Route>,
 ];
 
 export default userRoutes;

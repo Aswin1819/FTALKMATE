@@ -1,4 +1,4 @@
-import React from 'react';
+import React,{useState} from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { loginUser } from '../../features/auth/authSlice';
 import { motion } from 'framer-motion';
@@ -11,6 +11,7 @@ import { Button } from '../ui/button';
 import { Github } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '../../hooks/use-toast';
+import ForgotPasswordModal from './ForgotPasswordModal';
 
 
 const loginSchema = z.object({
@@ -21,6 +22,7 @@ const loginSchema = z.object({
 const LoginForm = ({ onToggle }) => {
   const dispatch = useDispatch();
   const { loading, error } = useSelector((state) => state.auth);
+  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
   const navigate = useNavigate();
   const form = useForm({
     resolver: zodResolver(loginSchema),
@@ -43,7 +45,7 @@ const onSubmit = (values) => {
     .catch((err) => {
       toast({
         title:"Login Failed",
-        description: err?.message || "Something went wrong!. Please try again.",
+        description: err?.detail || "Something went wrong!. Please try again.",
         variant : "destructive"
       })
       console.error(err); 
@@ -88,14 +90,15 @@ const onSubmit = (values) => {
             render={({ field }) => (
               <FormItem>
                 <div className="flex justify-between items-center">
-                  <FormLabel>Password</FormLabel>
-                  <a
-                    href="#"
-                    className="text-xs text-neon-purple hover:text-neon-blue transition-colors"
-                  >
-                    Forgot Password?
-                  </a>
-                </div>
+                    <FormLabel>Password</FormLabel>
+                    <button
+                      type="button"
+                      onClick={() => setIsForgotPasswordOpen(true)}
+                      className="text-xs text-neon-purple hover:text-neon-blue transition-colors"
+                    >
+                      Forgot Password?
+                    </button>
+                  </div>
                 <FormControl>
                   <Input
                     {...field}
@@ -161,8 +164,13 @@ const onSubmit = (values) => {
             Register
           </button>
         </p>
+      <ForgotPasswordModal 
+        isOpen={isForgotPasswordOpen} 
+        onClose={() => setIsForgotPasswordOpen(false)} 
+      />
       </div>
     </motion.div>
+    
   );
 };
 

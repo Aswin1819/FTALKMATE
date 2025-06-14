@@ -1,16 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { verifyOtp } from '../../features/auth/authSlice';
-import { useNavigate } from 'react-router-dom';
+import { verifyOtp, resendOtp, verifyPasswordResetOtp, resendPasswordResetOtp } from '../../features/auth/authSlice';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
 import { toast } from '../../hooks/use-toast';
-import { useLocation } from 'react-router-dom';
 import { 
   InputOTP, 
   InputOTPGroup, 
   InputOTPSlot 
 } from '../../components/ui/input-otp';
-import { resendOtp } from '../../features/auth/authSlice';
 
 const OTPVerification = () => {
   const dispatch = useDispatch();
@@ -21,9 +19,27 @@ const OTPVerification = () => {
   const navigate = useNavigate();
   const timerRef = useRef(null);
   const { state } = useLocation();
-  const email = state?.email
+  const [searchParams] = useSearchParams();
+  
+  // Get email from either location state or search params
+  const email = state?.email || searchParams.get('email');
+  
+  // Check if this is for password reset
+  const isPasswordReset = searchParams.get('type') === 'reset-password' || state?.type === 'reset-password';
 
   useEffect(() => {
+    // Redirect if no email is provided
+    if (!email) {
+      toast({
+        title: "Error",
+        description: "No email provided. Please try again.",
+        variant: "destructive",
+      });
+      navigate('/auth');
+      return;
+    }
+
+    // Start resend timer countdown
     timerRef.current = setInterval(() => {
       setResendTimer((prev) => {
         if (prev <= 1) {
@@ -37,79 +53,119 @@ const OTPVerification = () => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, []);
+  }, [email, navigate]);
 
   const handleVerifyOtp = async () => {
-  if (otp.length !== 6) {
-    toast({
-      title: "Incomplete OTP",
-      description: "Please enter all 6 digits of your OTP",
-      variant: "destructive",
-    });
-    return;
-  }
+    if (otp.length !== 6) {
+      toast({
+        title: "Incomplete OTP",
+        description: "Please enter all 6 digits of your OTP",
+        variant: "destructive",
+      });
+      return;
+    }
 
-  setIsVerifying(true);
-  try {
-    await dispatch(verifyOtp({ email, otp })).unwrap();
-    toast({
-      title: "Email Verified",
-      description: "Your email has been successfully verified",
-    });
-    navigate('/auth');
-  } catch (err) {
-    toast({
-      title: "Verification Failed",
-      description: err?.message || 'Invalid OTP. Please try again.',
-      variant: "destructive",
-    });
-  } finally {
-    setIsVerifying(false);
-  }
-};
-
+    setIsVerifying(true);
+    try {
+      if (isPasswordReset) {
+        // Verify OTP for password reset
+        const result = await dispatch(verifyPasswordResetOtp({ email, otp })).unwrap();
+        
+        toast({
+          title: "OTP Verified",
+          description: "You can now reset your password",
+        });
+        
+        // Navigate to reset password page with reset token
+        setTimeout(() => {
+          navigate(`/reset-password?email=${encodeURIComponent(email)}`);
+        }, 1000);
+      } else {
+        // Verify OTP for email verification
+        await dispatch(verifyOtp({ email, otp })).unwrap();
+        
+        toast({
+          title: "Email Verified",
+          description: "Your email has been successfully verified",
+        });
+        
+        // Navigate to dashboard or auth page
+        setTimeout(() => {
+          navigate('/auth');
+        }, 1000);
+      }
+    } catch (err) {
+      toast({
+        title: "Verification Failed",
+        description: err?.message || 'Invalid OTP. Please try again.',
+        variant: "destructive",
+      });
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
   const handleResendOtp = async () => {
-  if (resendTimer > 0) return;
+    if (resendTimer > 0) return;
 
-  try {
-    await dispatch(resendOtp({ email })).unwrap();
+    try {
+      if (isPasswordReset) {
+        // Resend OTP for password reset
+        await dispatch(resendPasswordResetOtp({ email })).unwrap();
+      } else {
+        // Resend OTP for email verification
+        await dispatch(resendOtp({ email })).unwrap();
+      }
 
-    toast({
-      title: "OTP Resent",
-      description: "A new verification code has been sent to your email",
-    });
-
-    setResendTimer(120);
-
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
-      setResendTimer((prev) => {
-        if (prev <= 1) {
-          if (timerRef.current) clearInterval(timerRef.current);
-          return 0;
-        }
-        return prev - 1;
+      toast({
+        title: "OTP Resent",
+        description: "A new verification code has been sent to your email",
       });
-    }, 1000);
-  } catch (err) {
-    toast({
-      title: "Resend Failed",
-      description: err?.message || "Could not resend OTP",
-      variant: "destructive",
-    });
-  }
-};
 
+      // Reset timer to 60 seconds for password reset, 120 for email verification
+      const newTimer = isPasswordReset ? 60 : 120;
+      setResendTimer(newTimer);
+
+      // Restart timer
+      if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = setInterval(() => {
+        setResendTimer((prev) => {
+          if (prev <= 1) {
+            if (timerRef.current) clearInterval(timerRef.current);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } catch (err) {
+      toast({
+        title: "Resend Failed",
+        description: err?.message || "Could not resend OTP",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBackToLogin = () => {
+    navigate('/auth');
+  };
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-[#13071D] p-4">
       <div className="w-full max-w-md">
         <div className="glass-morphism bg-[#1A0E29]/60 p-8 rounded-xl border border-white/10 shadow-xl animate-fade-in">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">Verify Your Email</h1>
+            <h1 className="text-3xl font-bold text-white mb-2">
+              {isPasswordReset ? 'Verify Password Reset' : 'Verify Your Email'}
+            </h1>
             <p className="text-gray-300">
-              Enter the 6-digit code sent to your email to continue.
+              {isPasswordReset 
+                ? 'Enter the 6-digit code sent to your email to reset your password.'
+                : 'Enter the 6-digit code sent to your email to continue.'
+              }
+            </p>
+            <p className="text-sm text-gray-400 mt-2">
+              Code sent to: {email}
             </p>
           </div>
 
@@ -136,9 +192,9 @@ const OTPVerification = () => {
               <Button
                 onClick={handleVerifyOtp}
                 className="bg-gradient-to-r from-neon-purple to-neon-blue text-white w-full py-6 hover:from-neon-blue hover:to-neon-purple hover:glow-purple transition-all"
-                loading={isVerifying}
+                disabled={isVerifying}
               >
-                Verify OTP
+                {isVerifying ? "Verifying..." : "Verify OTP"}
               </Button>
 
               <div className="text-center">
@@ -156,6 +212,18 @@ const OTPVerification = () => {
                     : 'Resend OTP'}
                 </button>
               </div>
+
+              {/* Back to login button for password reset */}
+              {isPasswordReset && (
+                <div className="text-center">
+                  <button
+                    onClick={handleBackToLogin}
+                    className="text-sm text-gray-400 hover:text-white hover:underline"
+                  >
+                    Back to Login
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

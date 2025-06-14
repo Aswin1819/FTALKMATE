@@ -18,6 +18,7 @@ import { Button } from '../ui/button';
 import { Github } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '../../hooks/use-toast';
+import { useState } from 'react';
 
 const registerSchema = z
   .object({
