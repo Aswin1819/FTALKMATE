@@ -9,6 +9,8 @@ import UserProfile from '../pages/user/dashboard/UserProfile';
 import ResetPassword from '../pages/user/ResetPassword';
 import ProtectedRoute from '../components/routes/ProtectedRoute';
 import PublicRoute from '../components/routes/PublicRoute';
+import Settings from '../pages/user/dashboard/Settings';
+import DashboardExplore from '../pages/user/dashboard/DashboardExplore';
 
 const userRoutes = [
   <Route path='/' element={<Index />} key="home" />,
@@ -34,6 +36,8 @@ const userRoutes = [
   >
     <Route index element={<DashboardHome />} />
     <Route path="profile" element={<UserProfile />} />
+    <Route path='settings' element={<Settings/>}/>
+    <Route path='explore' element={<DashboardExplore/>} />
   </Route>,
 ];
 

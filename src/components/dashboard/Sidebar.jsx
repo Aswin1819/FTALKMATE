@@ -88,7 +88,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, onLogout }) => {
           )}
         >
           <Avatar className={cn("border-2 border-white/10", collapsed ? "h-10 w-10" : "h-12 w-12")}>
-            <AvatarImage src={ user?.profile_summary?.avatar} /> 
+            <AvatarImage src={user?.profile_summary?.avatar || user?.avatar} /> 
             <AvatarFallback>
               {user?.username?.slice(0,2)?.toUpperCase() || "U"}
             </AvatarFallback>
@@ -118,15 +118,15 @@ const Sidebar = ({ collapsed, onToggleCollapse, onLogout }) => {
             {/* Social Stats */}
             <div className="mt-4 grid grid-cols-3 gap-2 text-center">
               <div className="bg-white/5 p-2 rounded-lg">
-                <div className="text-sm font-medium text-white">{user?.profile_summary?.followers}</div>
+                <div className="text-sm font-medium text-white">{user?.followers_count || user?.profile_summary?.followers}</div>
                 <div className="text-xs text-white/60">Followers</div>
               </div>
               <div className="bg-white/5 p-2 rounded-lg">
-                <div className="text-sm font-medium text-white">{user?.profile_summary?.following}</div>
+                <div className="text-sm font-medium text-white">{user?.following_count || user?.profile_summary?.following}</div>
                 <div className="text-xs text-white/60">Following</div>
               </div>
               <div className="bg-white/5 p-2 rounded-lg">
-                <div className="text-sm font-medium text-white">{user?.profile_summary?.friends}</div>
+                <div className="text-sm font-medium text-white">{user?.friends_count || user?.profile_summary?.friends}</div>
                 <div className="text-xs text-white/60">Friends</div>
               </div>
             </div>

@@ -2,7 +2,7 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 import axiosInstance from './axiosInstance';
 
-// Adjust baseURL as needed
+// Use axiosInstance consistently for all API calls
 const API_URL = 'http://127.0.0.1:8000/api/users';
 
 // Register User
@@ -10,7 +10,7 @@ export const registerUser = createAsyncThunk(
   'auth/register',
   async (formData, { rejectWithValue }) => {
     try {
-      const response = await axios.post(`${API_URL}/register/`, formData);
+      const response = await axiosInstance.post('/register/', formData);
       return response.data;
     } catch (err) {
       return rejectWithValue(err.response.data);
@@ -18,16 +18,12 @@ export const registerUser = createAsyncThunk(
   }
 );
 
-// Login User
+// Login User - USE AXIOSINSTANCE instead of axios
 export const loginUser = createAsyncThunk(
   'auth/login',
   async (formData, { rejectWithValue }) => {
     try {
-      const response = await axios.post(`${API_URL}/login/`, formData,
-        {
-            withCredentials: true,
-        }
-      );
+      const response = await axiosInstance.post('/login/', formData);
       console.log("Response from loginUser:", response.data);
       return response.data;
     } catch (err) {
@@ -41,7 +37,7 @@ export const verifyOtp = createAsyncThunk(
   'auth/verifyOtp',
   async ({ email, otp }, { rejectWithValue }) => {
     try {
-      const response = await axios.post(`${API_URL}/verify-otp/`, { email, code:otp });
+      const response = await axiosInstance.post('/verify-otp/', { email, code:otp });
       return response.data;
     } catch (err) {
       return rejectWithValue(err.response.data);
@@ -54,7 +50,7 @@ export const resendOtp = createAsyncThunk(
   'auth/resendOtp',
   async ({ email }, { rejectWithValue }) => {
     try {
-      const response = await axios.post(`${API_URL}/resend-otp/`, { email });
+      const response = await axiosInstance.post('/resend-otp/', { email });
       return response.data;
     } catch (err) {
       return rejectWithValue(err.response.data);
@@ -67,12 +63,7 @@ export const logoutUser = createAsyncThunk(
     'auth/logout',
     async (_, {rejectWithValue}) =>{
         try{
-            await axios.post(`${API_URL}/logout/`,
-                {},
-                {
-                    withCredentials : true
-                }
-            );
+            await axiosInstance.post('/logout/');
             return true;
         }catch (err) {
             return rejectWithValue(err.response.data);
@@ -80,12 +71,12 @@ export const logoutUser = createAsyncThunk(
     }
 );
 
-//get current user
+//get current user - REMOVE DUPLICATE, use fetchUserProfile
 export const getCurrentUser = createAsyncThunk(
   'auth/getCurrentUser',
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.get(`/current-user/`);
+      const response = await axiosInstance.get('/profile/'); // Use /profile/ instead of /current-user/
       return response.data;
     } catch (err) {
       return rejectWithValue(err.response?.data || { message: 'Failed to fetch user' });
@@ -98,7 +89,7 @@ export const verifyPasswordResetOtp = createAsyncThunk(
   'auth/verifyPasswordResetOtp',
   async ({ email, otp }, { rejectWithValue }) => {
     try {
-      const response = await axios.post(`${API_URL}/verify-password-reset-otp/`, { email, code: otp });
+      const response = await axiosInstance.post('/verify-password-reset-otp/', { email, code: otp });
       return response.data;
     } catch (err) {
       return rejectWithValue(err.response.data);
@@ -111,7 +102,7 @@ export const resendPasswordResetOtp = createAsyncThunk(
   'auth/resendPasswordResetOtp',
   async ({ email }, { rejectWithValue }) => {
     try {
-      const response = await axios.post(`${API_URL}/resend-password-reset-otp/`, { email });
+      const response = await axiosInstance.post('/resend-password-reset-otp/', { email });
       return response.data;
     } catch (err) {
       return rejectWithValue(err.response.data);
@@ -124,10 +115,7 @@ export const resetPassword = createAsyncThunk(
   'auth/resetPassword',
   async ({ email, password }, { rejectWithValue }) => {
     try {
-      const response = await axios.put(
-        `${API_URL}/reset-password/`,
-        { email, password }
-      );
+      const response = await axiosInstance.put('/reset-password/', { email, password });
       return response.data;
     } catch (err) {
       return rejectWithValue(err.response?.data || { message: 'Password reset failed' });
@@ -194,11 +182,11 @@ const authSlice = createSlice({
       })
       .addCase(getCurrentUser.fulfilled, (state,action)=>{
         state.loading = false;
-        state.user = action.payload.user
+        state.user = action.payload.user || action.payload; // Handle both user and profile response
         state.isInitialized = true;
         state.error = null;
       })
-      .addCase(getCurrentUser.rejected, (state)=>{
+      .addCase(getCurrentUser.rejected, (state, action)=>{
         state.loading = false;
         state.user = null;
         state.isInitialized = true;
