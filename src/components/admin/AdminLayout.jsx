@@ -32,6 +32,8 @@ import {
   DialogFooter
 } from "../../components/ui/dialog";
 import NotificationsPopover from './NotificationsPopover';
+import { useDispatch } from 'react-redux';
+import { adminLogout } from '../../features/auth/adminSlice';
 
 const adminNotifications = [
   {
@@ -66,6 +68,7 @@ const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [notifications, setNotifications] = useState(adminNotifications);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const dispatch = useDispatch();
   
   const sidebarItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/admin/dashboard" },
@@ -88,10 +91,11 @@ const AdminLayout = () => {
     setShowLogoutDialog(true);
   };
 
-  const confirmLogout = () => {
-    navigate('/admin/login');
-    setShowLogoutDialog(false);
-  };
+const confirmLogout = async () => {
+  await dispatch(adminLogout());
+  navigate('/admin/login');
+  setShowLogoutDialog(false);
+};
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);

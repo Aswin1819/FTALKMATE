@@ -6,6 +6,7 @@ import store, { persistor } from './store/index';
 import { Toaster } from './components/ui/toaster';
 import AuthProvider from './components/routes/AuthProvider'
 import userRoutes from './routes/userRoutes';
+import adminRoutes from './routes/adminRoutes';
 
 const App = () => {
   return (
@@ -17,7 +18,7 @@ const App = () => {
               {/* User Routes */}
               {userRoutes}
               {/* Admin Routes */}
-              {/* <AdminRoutes /> */}
+              {adminRoutes}
             </Routes>
             <Toaster />
           </AuthProvider>

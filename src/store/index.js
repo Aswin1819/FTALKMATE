@@ -12,10 +12,18 @@ const authPersistConfig = {
 
 const persistedAuthReducer = persistReducer(authPersistConfig, authReducer);
 
+const adminPersistConfig = {
+  key: 'admin',
+  storage,
+  whitelist: ['admin', 'isInitialized'], // persist these fields
+};
+
+const persistedAdminReducer = persistReducer(adminPersistConfig, adminReducer);
+
 const store = configureStore({
   reducer: {
     auth: persistedAuthReducer,
-    admin: adminReducer,
+    admin: persistedAdminReducer, // use persisted admin reducer
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

@@ -1,20 +1,13 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import axios from 'axios';
-
-// Base URL (adjust as needed)
-const API_BASE = 'http://127.0.0.1:8000/api/admin';
+import adminInstance from './adminInstance';
 
 // Admin Login Thunk
 export const adminLogin = createAsyncThunk(
   'admin/login',
   async ({ email, password }, { rejectWithValue }) => {
     try {
-      const response = await axios.post(`${API_BASE}/login/`, {
-        email,
-        password,
-      });
-      localStorage.setItem('adminToken', response.data.access);
-      return response.data;
+      const response = await adminInstance.post('/login/', { email, password });
+      return response.data.admin;
     } catch (error) {
       return rejectWithValue(error.response?.data?.detail || 'Login failed');
     }
@@ -24,14 +17,9 @@ export const adminLogin = createAsyncThunk(
 // Fetch Users Thunk
 export const fetchUsers = createAsyncThunk(
   'admin/fetchUsers',
-  async (_, { getState, rejectWithValue }) => {
+  async (_, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem('adminToken');
-      const response = await axios.get(`${API_BASE}/users/`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await adminInstance.get('/users/');
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.detail || 'Fetching users failed');
@@ -40,66 +28,63 @@ export const fetchUsers = createAsyncThunk(
 );
 
 // Logout Action
-export const adminLogout = createAsyncThunk('/logout/', async () => {
-  localStorage.removeItem('adminToken');
+export const adminLogout = createAsyncThunk('admin/logout', async () => {
+  await adminInstance.post('/logout/');
 });
 
 const adminSlice = createSlice({
   name: 'admin',
   initialState: {
     admin: null,
-    token: localStorage.getItem('adminToken') || null,
-    users: [],
     loading: false,
     error: null,
+    isInitialized: false, // Only set to false on first load if you want a splash screen
   },
-  reducers: {},
+  reducers: {
+    setAdmin: (state, action) => {
+      state.admin = action.payload;
+      state.isInitialized = true;
+    },
+    setInitialized: (state) => {
+      state.isInitialized = true;
+    }
+  },
   extraReducers: (builder) => {
     builder
-
-      // Admin Login
       .addCase(adminLogin.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(adminLogin.fulfilled, (state, action) => {
         state.loading = false;
-        state.admin = {
-          username: action.payload.username,
-          email: action.payload.email,
-          user_id: action.payload.user_id,
-          is_superuser: action.payload.is_superuser,
-        };
-        state.token = action.payload.access;
+        state.admin = action.payload;
+        state.isInitialized = true;
       })
       .addCase(adminLogin.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+        state.isInitialized = true;
       })
-
-      // Fetch Users
       .addCase(fetchUsers.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(fetchUsers.fulfilled, (state, action) => {
         state.loading = false;
-        state.users = action.payload;
+        state.error = null;
       })
       .addCase(fetchUsers.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
-
-      // Admin Logout
       .addCase(adminLogout.fulfilled, (state) => {
         state.admin = null;
-        state.token = null;
-        state.users = [];
         state.error = null;
         state.loading = false;
+        state.isInitialized = true;
       });
   },
 });
 
+export const { setAdmin, setInitialized } = adminSlice.actions;
 export default adminSlice.reducer;

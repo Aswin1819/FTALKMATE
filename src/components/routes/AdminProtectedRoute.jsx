@@ -1,34 +1,26 @@
-// import React from 'react';
-// import { useSelector } from 'react-redux';
-// import { Navigate } from 'react-router-dom';
+import React from 'react';
+import { useSelector } from 'react-redux';
+import { Navigate } from 'react-router-dom';
 
-// const AdminProtectedRoute = ({ children }) => {
-//   // If you have separate admin auth state, use that
-//   // For now, assuming you use the same auth state but check for admin role
-//   const { user, isInitialized, loading } = useSelector((state) => state.auth);
-  
-//   // You might have separate admin auth state like:
-//   // const { admin, isInitialized, loading } = useSelector((state) => state.adminAuth);
+const AdminProtectedRoute = ({ children }) => {
+  const { admin, isInitialized} = useSelector((state) => state.admin);
 
-//   // Show loading while checking authentication status
-//   if (!isInitialized || loading) {
-//     return (
-//       <div className="flex items-center justify-center min-h-screen">
-//         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
-//         <span className="ml-2">Checking admin access...</span>
-//       </div>
-//     );
-//   }
+  if (!isInitialized) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-[#13071D] to-[#2D1457]">
+        <div className="relative flex items-center justify-center">
+          <div className="w-14 h-14 border-4 border-neon-purple border-t-transparent rounded-full animate-spin"></div>
+          <span className="absolute text-neon-purple font-semibold text-lg">TM</span>
+        </div>
+      </div>
+    );
+  }
 
-//   // Check if user exists and has admin privileges
-//   // Adjust this condition based on your admin logic
-//   if (!user || !user.is_staff) {
-//     // Redirect to admin login if not authenticated or not admin
-//     return <Navigate to="/admin/login" replace />;
-//   }
+  if (!admin || !admin.is_superuser) {
+    return <Navigate to="/admin/login" replace />;
+  }
 
-//   // Render the protected admin component
-//   return children;
-// };
+  return children;
+};
 
-// export default AdminProtectedRoute;
+export default AdminProtectedRoute;

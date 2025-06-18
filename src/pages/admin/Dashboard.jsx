@@ -53,6 +53,8 @@ const LineChart = () => (
 );
 
 const AdminDashboard = () => {
+
+
   const stats = [
     { title: "Total Users", value: "8,249", icon: Users, change: "+12%", trend: "up" },
     { title: "Active Rooms", value: "156", icon: MessageSquare, change: "+5%", trend: "up" },
