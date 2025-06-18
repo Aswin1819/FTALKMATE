@@ -51,9 +51,13 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchUsers } from "../../features/auth/adminSlice";
+import UserProfileModal from '../../components/admin/UserProfileModal';
+import adminInstance from '../../features/auth/adminInstance';
 
 const UserManagement = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedUser,setSelectedUser] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [users, setUsers] = useState([]); // Local users state
   const dispatch = useDispatch();
   const { loading, error } = useSelector((state) => state.admin);
@@ -94,6 +98,23 @@ const UserManagement = () => {
         return <Badge>Unknown</Badge>;
     }
   };
+
+const handleViewUser = async (user) => {
+  try {
+    const res = await adminInstance.get(`/users/${user.id}/`);
+    setSelectedUser(res.data);
+    setIsModalOpen(true);
+  } catch (err) {
+    // Optionally show error toast
+    setSelectedUser(null);
+    setIsModalOpen(false);
+  }
+};
+
+  const handleCloseModal = ()=>{
+    setIsModalOpen(false);
+    setSelectedUser(null);
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -177,7 +198,7 @@ const UserManagement = () => {
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <Avatar className="h-8 w-8 border border-white/20">
-                                <AvatarImage src={`/placeholder.svg`} />
+                                <AvatarImage src={user.avatar} />
                                 <AvatarFallback className="bg-neon-purple/20 text-neon-purple">
                                   {user.username?.[0]?.toUpperCase() || "U"}
                                 </AvatarFallback>
@@ -187,18 +208,14 @@ const UserManagement = () => {
                           </TableCell>
                           <TableCell className="text-gray-300">{user.email}</TableCell>
                           <TableCell className="text-gray-300">{user.date_joined?.slice(0, 10)}</TableCell>
+                          <TableCell>{getStatusBadge(user.status)}</TableCell>
+                          <TableCell className="text-gray-300">{user.level}</TableCell>
                           <TableCell>
-                            {user.is_active
-                              ? <Badge className="bg-neon-green/20 text-neon-green hover:bg-neon-green/30">Active</Badge>
-                              : <Badge variant="destructive" className="bg-red-500/20 text-red-400 hover:bg-red-500/30">Inactive</Badge>
-                            }
-                          </TableCell>
-                          <TableCell>
-                            {user.is_verified
-                              ? <Badge className="bg-neon-green/20 text-neon-green hover:bg-neon-green/30">Verified</Badge>
-                              : <Badge variant="destructive" className="bg-yellow-600/20 text-yellow-500 hover:bg-yellow-600/30">Unverified</Badge>
-                            }
-                          </TableCell>
+                        {user.is_premium ? 
+                          <CheckCircle className="h-5 w-5 text-neon-purple" /> : 
+                          <XCircle className="h-5 w-5 text-gray-500" />
+                        }
+                      </TableCell>
                           <TableCell className="text-right">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -212,7 +229,10 @@ const UserManagement = () => {
                               <DropdownMenuContent align="end" className="bg-black/90 border-white/10 text-white">
                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                 <DropdownMenuSeparator className="bg-white/10" />
-                                <DropdownMenuItem className="hover:bg-white/10 focus:bg-white/10 cursor-pointer">
+                                <DropdownMenuItem
+                                 className="hover:bg-white/10 focus:bg-white/10 cursor-pointer"
+                                 onClick={()=>handleViewUser(user)}
+                                 >
                                   <Eye className="h-4 w-4 mr-2" />
                                   View Profile
                                 </DropdownMenuItem>
@@ -220,16 +240,24 @@ const UserManagement = () => {
                                   <RefreshCcw className="h-4 w-4 mr-2" />
                                   Reset Password
                                 </DropdownMenuItem>
-                                {user.is_active ? (
-                                  <DropdownMenuItem onClick={() => handleBanUser(user.id)} className="hover:bg-white/10 focus:bg-white/10 cursor-pointer text-red-400">
-                                    <Ban className="h-4 w-4 mr-2" />
-                                    Ban User
-                                  </DropdownMenuItem>
-                                ) : (
-                                  <DropdownMenuItem onClick={() => handleUnbanUser(user.id)} className="hover:bg-white/10 focus:bg-white/10 cursor-pointer text-neon-green">
+                                {user.status === 'banned' ? (
+                                  <DropdownMenuItem className="hover:bg-white/10 focus:bg-white/10 cursor-pointer text-neon-green">
                                     <CheckCircle className="h-4 w-4 mr-2" />
                                     Unban User
                                   </DropdownMenuItem>
+                                ) : (
+                                  <>
+                                    {user.status === 'flagged' ? (
+                                      <DropdownMenuItem className="hover:bg-white/10 focus:bg-white/10 cursor-pointer text-yellow-500">
+                                        <ShieldAlert className="h-4 w-4 mr-2" />
+                                        Review Flags
+                                      </DropdownMenuItem>
+                                    ) : null}
+                                    <DropdownMenuItem className="hover:bg-white/10 focus:bg-white/10 cursor-pointer text-red-400">
+                                      <Ban className="h-4 w-4 mr-2" />
+                                      Ban User
+                                    </DropdownMenuItem>
+                                  </>
                                 )}
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -276,6 +304,12 @@ const UserManagement = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <UserProfileModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        user={selectedUser}
+      />
     </div>
   );
 };
