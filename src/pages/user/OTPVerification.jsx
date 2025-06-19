@@ -79,7 +79,7 @@ const OTPVerification = () => {
         // Navigate to reset password page with reset token
         setTimeout(() => {
           navigate(`/reset-password?email=${encodeURIComponent(email)}`);
-        }, 1000);
+        });
       } else {
         // Verify OTP for email verification
         await dispatch(verifyOtp({ email, otp })).unwrap();
@@ -92,7 +92,7 @@ const OTPVerification = () => {
         // Navigate to dashboard or auth page
         setTimeout(() => {
           navigate('/auth');
-        }, 1000);
+        });
       }
     } catch (err) {
       toast({

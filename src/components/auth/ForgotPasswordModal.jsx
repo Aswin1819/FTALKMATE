@@ -51,7 +51,7 @@ const ForgotPasswordModal = ({ isOpen, onClose }) => {
       onClose();
       setTimeout(() => {
         navigate(`/otp-verification?type=reset-password&email=${encodeURIComponent(values.email)}`);
-      }, 500);
+      });
     } catch (err) {
       toast({
         title: 'Email Not Found',

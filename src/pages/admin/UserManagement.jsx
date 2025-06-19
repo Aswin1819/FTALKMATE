@@ -236,10 +236,10 @@ const handleViewUser = async (user) => {
                                   <Eye className="h-4 w-4 mr-2" />
                                   View Profile
                                 </DropdownMenuItem>
-                                <DropdownMenuItem className="hover:bg-white/10 focus:bg-white/10 cursor-pointer">
+                                {/* <DropdownMenuItem className="hover:bg-white/10 focus:bg-white/10 cursor-pointer">
                                   <RefreshCcw className="h-4 w-4 mr-2" />
                                   Reset Password
-                                </DropdownMenuItem>
+                                </DropdownMenuItem> */}
                                 {user.status === 'banned' ? (
                                   <DropdownMenuItem className="hover:bg-white/10 focus:bg-white/10 cursor-pointer text-neon-green">
                                     <CheckCircle className="h-4 w-4 mr-2" />

@@ -6,6 +6,7 @@ import AdminDashboard from '../pages/admin/Dashboard';
 import UserManagement from '../pages/admin/UserManagement';
 import AdminProtectedRoute from '../components/routes/AdminProtectedRoute';
 import AdminPublicRoute from '../components/routes/AdminPublicRoute';
+import TaxonomyManagement from '../pages/admin/TaxonomyManagement';
 
 const adminRoutes = [
   // Admin Login Route - Only accessible when admin not logged in
@@ -31,6 +32,7 @@ const adminRoutes = [
     <Route index element={<Navigate to="/admin/dashboard" replace />} />
     <Route path="dashboard" element={<AdminDashboard />} />
     <Route path="users" element={<UserManagement />} />
+    <Route path="taxonomy" element={<TaxonomyManagement/>}/>
     {/* Add more admin routes here */}
   </Route>,
 ];

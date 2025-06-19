@@ -59,14 +59,14 @@ const UserProfileModal = ({ isOpen, onClose, user, loading }) => {
       <DialogContent className="max-w-4xl bg-black/40 backdrop-blur-xl border border-white/10 text-white max-h-[90vh] overflow-y-auto">
         <DialogHeader className="relative">
           <DialogTitle className="text-2xl font-bold text-white mb-2">User Profile</DialogTitle>
-          <Button
+          {/* <Button
             variant="ghost"
             size="icon"
             onClick={onClose}
             className="absolute right-0 top-0 text-gray-400 hover:text-white hover:bg-white/10"
           >
             <X className="h-4 w-4" />
-          </Button>
+          </Button> */}
         </DialogHeader>
 
         <div className="space-y-6">

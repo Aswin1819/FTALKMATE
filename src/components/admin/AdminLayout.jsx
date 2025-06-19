@@ -32,7 +32,7 @@ import {
   DialogFooter
 } from "../../components/ui/dialog";
 import NotificationsPopover from './NotificationsPopover';
-import { useDispatch } from 'react-redux';
+import { useDispatch ,useSelector} from 'react-redux';
 import { adminLogout } from '../../features/auth/adminSlice';
 
 const adminNotifications = [
@@ -69,6 +69,7 @@ const AdminLayout = () => {
   const [notifications, setNotifications] = useState(adminNotifications);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const dispatch = useDispatch();
+  const {admin} = useSelector((state)=>state.admin)
   
   const sidebarItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/admin/dashboard" },
@@ -189,9 +190,9 @@ const confirmLogout = async () => {
                 <div className="flex items-center space-x-2 cursor-pointer">
                   <Avatar className="h-8 w-8 border border-white/20">
                     <AvatarImage src="/placeholder.svg" />
-                    <AvatarFallback className="bg-neon-purple/20 text-neon-purple">AD</AvatarFallback>
+                    <AvatarFallback className="bg-neon-purple/20 text-neon-purple">{admin.username?.[0]?.toUpperCase() || "AD"}</AvatarFallback>
                   </Avatar>
-                  <div className="text-sm font-medium text-gray-300 hidden md:block">Admin User</div>
+                  <div className="text-sm font-medium text-gray-300 hidden md:block">{admin.username}</div>
                 </div>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="bg-black/90 border-white/10 text-white">
