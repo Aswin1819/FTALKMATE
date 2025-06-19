@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
@@ -10,33 +10,152 @@ import {
   AccordionItem, 
   AccordionTrigger 
 } from "../../../components/ui/accordion";
-import { Globe, Mail, Bell, Shield, Trash2 } from "lucide-react";
+import { Globe, Mail, Bell, Shield, Trash2, Loader } from "lucide-react";
+import { 
+  fetchUserSettings, 
+  updateUserSettings, 
+  changePassword, 
+  fetchAvailableLanguages,
+  deleteAccount 
+} from '../../../api/settingsApi'; // Adjust the import path
+import { toast } from '../../../hooks/use-toast';
+
 
 const Settings = () => {
-  const [email, setEmail] = useState("john.doe@example.com");
+  // Password states
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [language, setLanguage] = useState("english");
+  
+ 
+  // Settings states from backend
+  const [settings, setSettings] = useState({
+    email_notifications: true,
+    practice_reminders: true,
+    room_interest_notifications: true,
+    browser_notifications: true,
+    public_profile: true,
+    show_online_status: true,
+    language: null,
+    timezone: 'UTC'
+  });
+  
+  // UI states
+  const [availableLanguages, setAvailableLanguages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
-  const [publicProfile, setPublicProfile] = useState(true);
-  const [onlineStatus, setOnlineStatus] = useState(true);
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [practiceReminders, setPracticeReminders] = useState(true);
-  const [newRoomNotifications, setNewRoomNotifications] = useState(true);
-  const [browserNotifications, setBrowserNotifications] = useState(true);
+  // Load initial data
+  useEffect(() => {
+    loadInitialData();
+  }, []);
 
-  const handleChangeEmail = (e) => {
-    e.preventDefault();
+  const loadInitialData = async () => {
+    try {
+      setLoading(true);
+      const [settingsData, languagesData] = await Promise.all([
+        fetchUserSettings(),
+        fetchAvailableLanguages()
+      ]);
+      
+      setSettings(settingsData);
+      setAvailableLanguages(languagesData);
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to load settings. Please try again.', variant: 'destructive' });
+      console.error('Error loading settings:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleChangePassword = (e) => {
-    e.preventDefault();
+  // Update settings helper
+  const updateSetting = async (key, value) => {
+    try {
+      setUpdating(true);
+      const updatedSettings = { ...settings, [key]: value };
+      
+      // Handle email notification dependencies
+      if (key === 'email_notifications' && !value) {
+        updatedSettings.practice_reminders = false;
+        updatedSettings.room_interest_notifications = false;
+      }
+      
+      const response = await updateUserSettings(updatedSettings);
+      setSettings(response);
+      toast({ title: 'Success', description: 'Settings updated successfully', variant: 'success' });
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to update settings. Please try again.', variant: 'destructive' });
+      console.error('Error updating settings:', err);
+    } finally {
+      setUpdating(false);
+    }
   };
+
+  // Handle password change
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast({ title: 'Error', description: 'Please fill in all password fields', variant: 'destructive' });
+      return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+      toast({ title: 'Error', description: 'New passwords do not match', variant: 'destructive' });
+      return;
+    }
+    
+    try {
+      setPasswordLoading(true);
+      await changePassword({
+        current_password: currentPassword,
+        new_password: newPassword,
+        confirm_password: confirmPassword
+      });
+      toast({ title: 'Success', description: 'Password changed successfully', variant: 'success' });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      const errorMessage = err.response?.data?.current_password?.[0] || 
+                          err.response?.data?.new_password?.[0] || 
+                          err.response?.data?.non_field_errors?.[0] ||
+                          'Failed to change password. Please try again.';
+      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  // Handle account deletion
+  const handleDeleteAccount = async () => {
+    if (window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+      try {
+        await deleteAccount();
+        toast({ title: 'Success', description: 'Account deleted successfully', variant: 'success' });
+        // Redirect to login or home page
+        window.location.href = '/login';
+      } catch (err) {
+        toast({ title: 'Error', description: 'Failed to delete account. Please try again.', variant: 'destructive' });
+        console.error('Error deleting account:', err);
+      }
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="w-full flex items-center justify-center py-8">
+        <Loader className="animate-spin h-8 w-8 text-neon-purple" />
+        <span className="ml-2 text-white">Loading settings...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full">
       <h1 className="text-2xl font-bold mb-6 text-white">Settings</h1>
+      
       <div className="space-y-6">
         <Accordion type="single" collapsible className="w-full" defaultValue="account">
           <AccordionItem value="account" className="border-white/10">
@@ -45,59 +164,6 @@ const Settings = () => {
             </AccordionTrigger>
             <AccordionContent className="pt-4">
               <div className="space-y-6">
-                <Card className="bg-[#1A0E29]/60 border-white/10 backdrop-blur-md shadow-lg">
-                  <CardHeader>
-                    <CardTitle className="text-white flex items-center">
-                      <Mail className="mr-2 h-5 w-5 text-neon-blue" />
-                      Change Email
-                    </CardTitle>
-                    <CardDescription className="text-white/70">
-                      Update your email address
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <form onSubmit={handleChangeEmail} className="space-y-4">
-                      <div>
-                        <label htmlFor="current-email" className="block text-white/80 mb-2 text-sm">
-                          Current Email
-                        </label>
-                        <Input
-                          id="current-email"
-                          type="email"
-                          value={email}
-                          disabled
-                          className="bg-white/5 border-white/20 text-white"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="new-email" className="block text-white/80 mb-2 text-sm">
-                          New Email
-                        </label>
-                        <Input
-                          id="new-email"
-                          type="email"
-                          placeholder="Enter new email"
-                          className="bg-white/5 border-white/20 text-white"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="password" className="block text-white/80 mb-2 text-sm">
-                          Password (to confirm)
-                        </label>
-                        <Input
-                          id="password"
-                          type="password"
-                          placeholder="Enter your password"
-                          className="bg-white/5 border-white/20 text-white"
-                        />
-                      </div>
-                      <Button type="submit" variant="gradient">
-                        Update Email
-                      </Button>
-                    </form>
-                  </CardContent>
-                </Card>
-
                 <Card className="bg-[#1A0E29]/60 border-white/10 backdrop-blur-md shadow-lg">
                   <CardHeader>
                     <CardTitle className="text-white flex items-center">
@@ -121,6 +187,7 @@ const Settings = () => {
                           onChange={(e) => setCurrentPassword(e.target.value)}
                           placeholder="Enter current password"
                           className="bg-white/5 border-white/20 text-white"
+                          disabled={passwordLoading}
                         />
                       </div>
                       <div>
@@ -134,6 +201,7 @@ const Settings = () => {
                           onChange={(e) => setNewPassword(e.target.value)}
                           placeholder="Enter new password"
                           className="bg-white/5 border-white/20 text-white"
+                          disabled={passwordLoading}
                         />
                       </div>
                       <div>
@@ -147,9 +215,16 @@ const Settings = () => {
                           onChange={(e) => setConfirmPassword(e.target.value)}
                           placeholder="Confirm new password"
                           className="bg-white/5 border-white/20 text-white"
+                          disabled={passwordLoading}
                         />
                       </div>
-                      <Button type="submit" variant="gradient">
+                      <Button 
+                        type="submit" 
+                        variant="gradient" 
+                        disabled={passwordLoading}
+                        className="flex items-center"
+                      >
+                        {passwordLoading && <Loader className="animate-spin mr-2 h-4 w-4" />}
                         Update Password
                       </Button>
                     </form>
@@ -170,7 +245,11 @@ const Settings = () => {
                     <p className="text-white/80 mb-4">
                       This action cannot be undone. It will permanently delete your account, profile, and all data associated with it.
                     </p>
-                    <Button variant="outline" className="bg-transparent border-red-400 text-red-400 hover:bg-red-400/10">
+                    <Button 
+                      variant="outline" 
+                      className="bg-transparent border-red-400 text-red-400 hover:bg-red-400/10"
+                      onClick={handleDeleteAccount}
+                    >
                       Delete My Account
                     </Button>
                   </CardContent>
@@ -193,16 +272,17 @@ const Settings = () => {
                         Interface Language
                       </h3>
                       <select 
-                        value={language}
-                        onChange={(e) => setLanguage(e.target.value)}
+                        value={settings.language || ''}
+                        onChange={(e) => updateSetting('language', e.target.value || null)}
                         className="w-full p-2.5 bg-white/5 border border-white/20 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-neon-purple"
+                        disabled={updating}
                       >
-                        <option value="english">English</option>
-                        <option value="spanish">Spanish</option>
-                        <option value="french">French</option>
-                        <option value="german">German</option>
-                        <option value="japanese">Japanese</option>
-                        <option value="chinese">Chinese</option>
+                        <option value="">Select Language</option>
+                        {availableLanguages.map((lang) => (
+                          <option key={lang.id} value={lang.id}>
+                            {lang.name}
+                          </option>
+                        ))}
                       </select>
                     </div>
 
@@ -215,9 +295,10 @@ const Settings = () => {
                         <div className="flex items-center space-x-2">
                           <Checkbox 
                             id="email-notifications" 
-                            checked={emailNotifications} 
-                            onCheckedChange={(checked) => setEmailNotifications(!!checked)}
+                            checked={settings.email_notifications} 
+                            onCheckedChange={(checked) => updateSetting('email_notifications', !!checked)}
                             className="data-[state=checked]:bg-neon-purple data-[state=checked]:text-white border-white/30"
+                            disabled={updating}
                           />
                           <label htmlFor="email-notifications" className="text-white/80 text-sm">
                             Receive email notifications
@@ -227,14 +308,14 @@ const Settings = () => {
                         <div className="flex items-center space-x-2 pl-6">
                           <Checkbox 
                             id="practice-reminders" 
-                            checked={practiceReminders} 
-                            onCheckedChange={(checked) => setPracticeReminders(!!checked)}
+                            checked={settings.practice_reminders} 
+                            onCheckedChange={(checked) => updateSetting('practice_reminders', !!checked)}
                             className="data-[state=checked]:bg-neon-purple data-[state=checked]:text-white border-white/30"
-                            disabled={!emailNotifications}
+                            disabled={!settings.email_notifications || updating}
                           />
                           <label 
                             htmlFor="practice-reminders" 
-                            className={`text-sm ${emailNotifications ? 'text-white/80' : 'text-white/40'}`}
+                            className={`text-sm ${settings.email_notifications ? 'text-white/80' : 'text-white/40'}`}
                           >
                             Practice reminders
                           </label>
@@ -242,15 +323,15 @@ const Settings = () => {
 
                         <div className="flex items-center space-x-2 pl-6">
                           <Checkbox 
-                            id="new-room-notifications" 
-                            checked={newRoomNotifications} 
-                            onCheckedChange={(checked) => setNewRoomNotifications(!!checked)}
+                            id="room-interest-notifications" 
+                            checked={settings.room_interest_notifications} 
+                            onCheckedChange={(checked) => updateSetting('room_interest_notifications', !!checked)}
                             className="data-[state=checked]:bg-neon-purple data-[state=checked]:text-white border-white/30"
-                            disabled={!emailNotifications}
+                            disabled={!settings.email_notifications || updating}
                           />
                           <label 
-                            htmlFor="new-room-notifications" 
-                            className={`text-sm ${emailNotifications ? 'text-white/80' : 'text-white/40'}`}
+                            htmlFor="room-interest-notifications" 
+                            className={`text-sm ${settings.email_notifications ? 'text-white/80' : 'text-white/40'}`}
                           >
                             New rooms matching your interests
                           </label>
@@ -264,9 +345,10 @@ const Settings = () => {
                         <p className="text-white/70 text-sm">Allow browser notifications for message alerts</p>
                       </div>
                       <Switch 
-                        checked={browserNotifications} 
-                        onCheckedChange={setBrowserNotifications}
+                        checked={settings.browser_notifications} 
+                        onCheckedChange={(checked) => updateSetting('browser_notifications', checked)}
                         className="data-[state=checked]:bg-neon-purple"
+                        disabled={updating}
                       />
                     </div>
                   </div>
@@ -289,9 +371,10 @@ const Settings = () => {
                         <p className="text-white/70 text-sm">Allow others to view your profile</p>
                       </div>
                       <Switch 
-                        checked={publicProfile} 
-                        onCheckedChange={setPublicProfile}
+                        checked={settings.public_profile} 
+                        onCheckedChange={(checked) => updateSetting('public_profile', checked)}
                         className="data-[state=checked]:bg-neon-purple"
+                        disabled={updating}
                       />
                     </div>
 
@@ -301,9 +384,10 @@ const Settings = () => {
                         <p className="text-white/70 text-sm">Show when you're active on the platform</p>
                       </div>
                       <Switch 
-                        checked={onlineStatus} 
-                        onCheckedChange={setOnlineStatus}
+                        checked={settings.show_online_status} 
+                        onCheckedChange={(checked) => updateSetting('show_online_status', checked)}
                         className="data-[state=checked]:bg-neon-purple"
+                        disabled={updating}
                       />
                     </div>
                   </div>

@@ -9,7 +9,7 @@ const AuthProvider = ({ children }) => {
   const { isInitialized, loading } = useSelector((state) => state.auth);
 
   // List of public routes
-  const publicRoutes = ['/', '/auth', '/register', '/otp-verification', '/about', '/contact'];
+  const publicRoutes = ['/', '/auth', '/register', '/otp-verification'];
   const isPublicRoute = publicRoutes.includes(location.pathname);
 
   useEffect(() => {

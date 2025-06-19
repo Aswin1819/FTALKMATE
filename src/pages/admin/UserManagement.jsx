@@ -76,14 +76,42 @@ const UserManagement = () => {
     }
   };
 
-  // Example handler for ban/unban (replace with real API call)
+  // Ban user API call
+  const banUser = async (userId) => {
+    try {
+      await adminInstance.post(`/users/${userId}/status/`, { action: 'banned' });
+      return true;
+    } catch (err) {
+      return false;
+    }
+  };
+
+  // Unban user API call
+  const unbanUser = async (userId) => {
+    try {
+      await adminInstance.post(`/users/${userId}/status/`, { action: 'active' });
+      return true;
+    } catch (err) {
+      return false;
+    }
+  };
+
+  // Handler for ban/unban
   const handleBanUser = async (userId) => {
-    // await dispatch(banUser(userId));
-    await loadUsers();
+    const success = await banUser(userId);
+    if (success) {
+      await loadUsers();
+    } else {
+      // Optionally show error toast
+    }
   };
   const handleUnbanUser = async (userId) => {
-    // await dispatch(unbanUser(userId));
-    await loadUsers();
+    const success = await unbanUser(userId);
+    if (success) {
+      await loadUsers();
+    } else {
+      // Optionally show error toast
+    }
   };
 
   const getStatusBadge = (status) => {
@@ -231,7 +259,7 @@ const handleViewUser = async (user) => {
                                 <DropdownMenuSeparator className="bg-white/10" />
                                 <DropdownMenuItem
                                  className="hover:bg-white/10 focus:bg-white/10 cursor-pointer"
-                                 onClick={()=>handleViewUser(user)}
+                                 onClick={() => handleViewUser(user)}
                                  >
                                   <Eye className="h-4 w-4 mr-2" />
                                   View Profile
@@ -241,23 +269,21 @@ const handleViewUser = async (user) => {
                                   Reset Password
                                 </DropdownMenuItem> */}
                                 {user.status === 'banned' ? (
-                                  <DropdownMenuItem className="hover:bg-white/10 focus:bg-white/10 cursor-pointer text-neon-green">
+                                  <DropdownMenuItem
+                                  onClick={() => handleUnbanUser(user.id)}
+                                  className="hover:bg-white/10 focus:bg-white/10 cursor-pointer text-neon-green"
+                                  >
                                     <CheckCircle className="h-4 w-4 mr-2" />
                                     Unban User
                                   </DropdownMenuItem>
                                 ) : (
-                                  <>
-                                    {user.status === 'flagged' ? (
-                                      <DropdownMenuItem className="hover:bg-white/10 focus:bg-white/10 cursor-pointer text-yellow-500">
-                                        <ShieldAlert className="h-4 w-4 mr-2" />
-                                        Review Flags
-                                      </DropdownMenuItem>
-                                    ) : null}
-                                    <DropdownMenuItem className="hover:bg-white/10 focus:bg-white/10 cursor-pointer text-red-400">
-                                      <Ban className="h-4 w-4 mr-2" />
-                                      Ban User
-                                    </DropdownMenuItem>
-                                  </>
+                                  <DropdownMenuItem
+                                  onClick={() => handleBanUser(user.id)}
+                                  className="hover:bg-white/10 focus:bg-white/10 cursor-pointer text-red-400"
+                                  >
+                                    <Ban className="h-4 w-4 mr-2" />
+                                    Ban User
+                                  </DropdownMenuItem>
                                 )}
                               </DropdownMenuContent>
                             </DropdownMenu>
