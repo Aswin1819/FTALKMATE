@@ -60,6 +60,12 @@ const GoogleAuth = () => {
         onSuccess={handleSuccess}
         onError={handleFailure}
         // useOneTap
+        // type="icon" // Make sure it's compact. You can remove this if you want default layout
+        shape="circle" // Optional
+        theme="filled_black" // Optional, looks better on dark backgrounds
+        size="medium" // Or "medium"
+        // width="100%" // Ensure it stretches like a button
+        fill="currentColor"
       />
     </GoogleOAuthProvider>
   );

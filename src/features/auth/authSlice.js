@@ -2,8 +2,7 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 import axiosInstance from './axiosInstance';
 
-// Use axiosInstance consistently for all API calls
-const API_URL = 'http://127.0.0.1:8000/api/users';
+
 
 // Register User
 export const registerUser = createAsyncThunk(
@@ -160,6 +159,11 @@ const authSlice = createSlice({
     isInitialized : false,
   },
   reducers: {
+    setUser: (state, action) => {
+      state.user = action.payload;
+      state.loading = false;
+      state.error = null;
+    },
     logout: (state) => {
       state.user = null;
       state.loading = false;
@@ -293,6 +297,6 @@ const authSlice = createSlice({
   },
 });
 
-export const { logout,clearError,setInitialized  } = authSlice.actions;
+export const { logout,clearError,setInitialized,setUser  } = authSlice.actions;
 export default authSlice.reducer;
 

@@ -155,14 +155,7 @@ const UserProfile = () => {
       .catch(() => toast({ title: "Error", description: "Failed to update languages", variant: "destructive" }));
   };
 
-  // const availableLanguages = [
-  //   { name: 'Arabic', flag: '🇸🇦' }, { name: 'Chinese', flag: '🇨🇳' }, { name: 'Dutch', flag: '🇳🇱' },
-  //   { name: 'English', flag: '🇺🇸' }, { name: 'French', flag: '🇫🇷' }, { name: 'German', flag: '🇩🇪' },
-  //   { name: 'Hindi', flag: '🇮🇳' }, { name: 'Italian', flag: '🇮🇹' }, { name: 'Japanese', flag: '🇯🇵' },
-  //   { name: 'Korean', flag: '🇰🇷' }, { name: 'Portuguese', flag: '🇵🇹' }, { name: 'Russian', flag: '🇷🇺' },
-  //   { name: 'Spanish', flag: '🇪🇸' }, { name: 'Swedish', flag: '🇸🇪' }, { name: 'Turkish', flag: '🇹🇷' },
-  // ];
-  // const languageLevels = ['Native', 'Fluent', 'Advanced', 'Intermediate', 'Beginner', 'Elementary', 'Novice'];
+
 
   if (loading) return <div className="text-white">Loading...</div>;
 

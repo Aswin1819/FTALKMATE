@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Button } from "../ui/button";
 import { Globe, Moon, Menu, X } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 
 const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const user = useSelector((state)=> state.auth.user)
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -46,8 +48,8 @@ const Header = () => {
           <Button variant="ghost" size="icon" className="rounded-full glass-morphism hover:glow-purple transition-all">
             <Moon className="h-5 w-5 text-neon-purple" />
           </Button>
-          <Button onClick={() => navigate('/auth')} className="bg-neon-purple hover:bg-neon-purple/90 text-white hover:glow-purple transition-all">
-            Sign In
+          <Button onClick={() => user?navigate('/dashboard'):navigate('/auth')} className="bg-neon-purple hover:bg-neon-purple/90 text-white hover:glow-purple transition-all">
+            {user?'Dashboard':'Sign In'}
           </Button>
         </div>
 
