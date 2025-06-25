@@ -11,3 +11,14 @@ export const googleSignin = async (idToken) => {
     throw error;
   }
 };
+
+
+export const fetchAccessToken = async ()=> {
+  try {
+    const response = await axiosInstance.get('/get-access-token/');
+    return response.data.token;
+  } catch (error) {
+    console.log("Failed to fetch access token from backend:",error);
+    return null;
+  }
+}

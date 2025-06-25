@@ -1,6 +1,6 @@
 import React,{useState} from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { loginUser } from '../../features/auth/authSlice';
+import { loginUser } from '../../features/auth/authThunks';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';

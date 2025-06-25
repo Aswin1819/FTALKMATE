@@ -30,7 +30,7 @@ import { Pencil, Plus, X } from 'lucide-react';
 import { toast } from '../../../hooks/use-toast';
 import axiosInstance from '../../../features/auth/axiosInstance';
 import { useSelector, useDispatch} from 'react-redux';
-import { getCurrentUser } from '../../../features/auth/authSlice';
+import { getCurrentUser } from '../../../features/auth/authThunks';
 
 const UserProfile = () => {
   const user = useSelector((state) => state.auth.user); // For username, etc.

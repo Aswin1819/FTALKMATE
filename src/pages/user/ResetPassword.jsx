@@ -16,7 +16,7 @@ import { Input } from '../../components/ui/input';
 import { Button } from '../../components/ui/button';
 import { useToast } from '../../hooks/use-toast';
 import { Eye, EyeOff, Check, X } from 'lucide-react';
-import { resetPassword } from '../../features/auth/authSlice';
+import { resetPassword } from '../../features/auth/authThunks';
 import { useSearchParams } from 'react-router-dom';
 
 const resetPasswordSchema = z

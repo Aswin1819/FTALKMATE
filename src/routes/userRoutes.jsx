@@ -11,6 +11,7 @@ import ProtectedRoute from '../components/routes/ProtectedRoute';
 import PublicRoute from '../components/routes/PublicRoute';
 import Settings from '../pages/user/dashboard/Settings';
 import DashboardExplore from '../pages/user/dashboard/DashboardExplore';
+import LiveRoom from '../pages/user/dashboard/LiveRoom';
 
 const userRoutes = [
   <Route path='/' element={<Index />} key="home" />,
@@ -39,6 +40,7 @@ const userRoutes = [
     <Route path='settings' element={<Settings/>}/>
     <Route path='explore' element={<DashboardExplore/>} />
   </Route>,
+    <Route path='room/:roomId' element={<LiveRoom/>}/>
 ];
 
 export default userRoutes;

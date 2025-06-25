@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { verifyOtp, resendOtp, verifyPasswordResetOtp, resendPasswordResetOtp } from '../../features/auth/authSlice';
+import { verifyOtp, resendOtp, verifyPasswordResetOtp, resendPasswordResetOtp } from '../../features/auth/authThunks';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
 import { toast } from '../../hooks/use-toast';

@@ -20,7 +20,7 @@ import {
 import { Button } from '../../../components/ui/button';
 import { BellIcon } from 'lucide-react';
 import { Badge } from '../../../components/ui/badge';
-import { getCurrentUser, logoutUser } from '../../../features/auth/authSlice';
+import { logoutUser } from '../../../features/auth/authThunks';
 import { useDispatch , useSelector } from 'react-redux';
 import { toast } from '../../../hooks/use-toast';
 
@@ -69,6 +69,7 @@ const Dashboard = () => {
   const dispatch = useDispatch();
   const user = useSelector((state) => state.auth.user); 
   
+
 
   const toggleSidebar = () => {
     setSidebarCollapsed(!sidebarCollapsed);

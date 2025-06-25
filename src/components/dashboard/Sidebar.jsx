@@ -24,12 +24,12 @@ const Sidebar = ({ collapsed, onToggleCollapse, onLogout }) => {
       to: "/dashboard/explore",
       activePattern: /^\/dashboard\/explore$/
     },
-    { 
-      label: "Create", 
-      icon: PlusSquare, 
-      to: "/dashboard/create",
-      activePattern: /^\/dashboard\/create$/
-    },
+    // { 
+    //   label: "Create", 
+    //   icon: PlusSquare, 
+    //   to: "/dashboard/create",
+    //   activePattern: /^\/dashboard\/create$/
+    // },
     { 
       label: "Profile", 
       icon: User, 
@@ -97,7 +97,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, onLogout }) => {
           {!collapsed && (
             <div className="ml-3">
               <div className="font-medium text-white">{user?.username || user?.profile?.user?.username}</div>
-              <div className="text-sm text-white/60">Level {user?.profile?.level}</div>
+              <div className="text-sm text-white/60">Level {user?.profile?.level || user?.level }</div>
             </div>
           )}
         </div>
@@ -118,15 +118,15 @@ const Sidebar = ({ collapsed, onToggleCollapse, onLogout }) => {
             {/* Social Stats */}
             <div className="mt-4 grid grid-cols-3 gap-2 text-center">
               <div className="bg-white/5 p-2 rounded-lg">
-                <div className="text-sm font-medium text-white">{user?.followers_count || user?.profile?.followers_count}</div>
+                <div className="text-sm font-medium text-white">{ user?.followers_count || user?.profile?.followers_count|| 0}</div>
                 <div className="text-xs text-white/60">Followers</div>
               </div>
               <div className="bg-white/5 p-2 rounded-lg">
-                <div className="text-sm font-medium text-white">{user?.following_count || user?.profile?.following_count}</div>
+                <div className="text-sm font-medium text-white">{ user?.following_count || user?.profile?.following_count|| 0}</div>
                 <div className="text-xs text-white/60">Following</div>
               </div>
               <div className="bg-white/5 p-2 rounded-lg">
-                <div className="text-sm font-medium text-white">{user?.friends_count || user?.profile?.user?.profile_summary?.friends}</div>
+                <div className="text-sm font-medium text-white">{ user?.friends_count || user?.profile?.user?.profile_summary?.friends|| 0}</div>
                 <div className="text-xs text-white/60">Friends</div>
               </div>
             </div>
