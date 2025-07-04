@@ -9,6 +9,9 @@ import { cn } from '../../../lib/utils';
 import { toast } from '../../../hooks/use-toast';
 import roomApi from '../../../api/roomApi';
 import { fetchAccessToken } from '../../../api/auth';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "../../../components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../../../components/ui/dialog";
+import { Textarea } from "../../../components/ui/textarea";
 
 const LiveRoom = () => {
   const { roomId } = useParams();
@@ -46,6 +49,11 @@ const LiveRoom = () => {
   const [isHandRaised, setIsHandRaised] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isWebSocketOpen, setIsWebSocketOpen] = useState(false);
+
+  // Report user state
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [reportTarget, setReportTarget] = useState(null);
+  const [reportReason, setReportReason] = useState("");
 
   // WebRTC configuration
   const rtcConfiguration = {
@@ -1140,6 +1148,28 @@ const LiveRoom = () => {
     }
   }, [currentUser, initiateWebRTCConnection]);
 
+  // Handler to open modal
+const handleOpenReport = (user) => {
+  setReportTarget(user);
+  setReportReason("");
+  setReportDialogOpen(true);
+};
+
+// Handler to submit report
+const handleSubmitReport = async () => {
+  if (!reportReason.trim()) {
+    toast({ title: "Reason required", description: "Please enter a reason.", variant: "destructive" });
+    return;
+  }
+  try {
+    await roomApi.reportUser(room.id, reportTarget.user_id, reportReason);
+    toast({ title: "Reported", description: "User has been reported.", variant: "default" });
+    setReportDialogOpen(false);
+  } catch (err) {
+    toast({ title: "Error", description: "Failed to report user.", variant: "destructive" });
+  }
+};
+
   // Loading and error states
   if (loading) {
     return (
@@ -1262,206 +1292,170 @@ const LiveRoom = () => {
       <div className="flex-1 flex relative overflow-hidden">
         {/* Participants Grid/Audio View */}
         <div className="flex-1 p-6 overflow-y-auto relative z-10">
-          {isVideoMode ? (
-            /* Video Grid Layout */
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 h-full">
-              {participants.map((participant, index) => (
-                <motion.div
-                  key={participant.user_id}
-                  className="relative rounded-2xl overflow-hidden group hover:scale-[1.02] transition-all duration-300"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: index * 0.1 }}
-                  style={{
-                    background: 'linear-gradient(135deg, rgba(139, 69, 19, 0.3) 0%, rgba(0, 0, 0, 0.8) 100%)'
-                  }}
-                >
-                  {/* Video Content */}
-                  <div className="aspect-video bg-gradient-to-br from-purple-900/50 to-black/80 relative overflow-hidden">
-                    {participant.user_id === currentUser?.id ? (
-                      <video
-                        ref={localVideoRef}
-                        autoPlay
-                        muted
-                        playsInline
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      renderRemoteVideo(participant)
-                    )}
-
-                    {/* Video Overlay Effects */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-
-                    {/* Participant Info Overlay */}
-                    <div className="absolute bottom-0 left-0 right-0 p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <div className="px-2 py-1 bg-black/60 rounded-lg backdrop-blur-sm">
-                            <span className="text-white font-semibold text-sm">
-                              {participant.user_id === currentUser?.id ? 'You' : participant.username}
-                            </span>
-                          </div>
-                          {participant.role === 'host' && (
-                            <div className="px-2 py-1 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg">
-                              <span className="text-white text-xs font-bold">HOST</span>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex items-center space-x-1">
-                          {participant.is_muted && (
-                            <div className="p-1 bg-red-500/80 rounded-full">
-                              <MicOff className="h-3 w-3 text-white" />
-                            </div>
-                          )}
-                          {participant.hand_raised && (
-                            <motion.div
-                              className="p-1 bg-yellow-500/80 rounded-full"
-                              animate={{ rotate: [0, -10, 10, -10, 0] }}
-                              transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
-                            >
-                              <HandMetal className="h-3 w-3 text-white" />
-                            </motion.div>
-                          )}
-                          {!participant.video_enabled && (
-                            <div className="p-1 bg-gray-500/80 rounded-full">
-                              <VideoOff className="h-3 w-3 text-white" />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          ) : (
-            /* Audio-Only Circular Layout */
-            <div className="flex items-center justify-center h-full">
-              <div className="relative">
-                {/* Center Circle for Current User */}
-                <motion.div
-                  className="relative z-10"
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: "spring", stiffness: 200 }}
-                >
-                  <div className="relative">
-                    <Avatar className="h-32 w-32 border-4 border-purple-500/50 shadow-2xl shadow-purple-500/25">
-                      <AvatarImage src={`https://i.pravatar.cc/150?u=${currentUser?.id}`} />
-                      <AvatarFallback className="text-4xl bg-gradient-to-br from-purple-600 to-pink-600 text-white">
-                        {currentUser?.username?.[0]?.toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-
-                    {/* Audio Visualizer Ring */}
-                    <motion.div
-                      className="absolute inset-0 rounded-full border-2 border-purple-400"
-                      animate={{
-                        scale: isMuted ? 1 : [1, 1.1, 1],
-                        opacity: isMuted ? 0.3 : [0.3, 0.8, 0.3]
-                      }}
-                      transition={{ duration: 1, repeat: Infinity }}
+        {isVideoMode ? (
+          /* Video Grid Layout */
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 h-full">
+            {participants.map((participant, index) => (
+              <motion.div
+                key={participant.user_id}
+                className="relative rounded-2xl overflow-hidden group hover:scale-[1.02] transition-all duration-300"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: index * 0.1 }}
+                style={{
+                  background: 'linear-gradient(135deg, rgba(139, 69, 19, 0.3) 0%, rgba(0, 0, 0, 0.8) 100%)'
+                }}
+              >
+                {/* Video Content */}
+                <div className="aspect-video bg-gradient-to-br from-purple-900/50 to-black/80 relative overflow-hidden">
+                  {participant.user_id === currentUser?.id ? (
+                    <video
+                      ref={localVideoRef}
+                      autoPlay
+                      muted
+                      playsInline
+                      className="w-full h-full object-cover"
                     />
+                  ) : (
+                    renderRemoteVideo(participant)
+                  )}
 
-                    {/* Status Indicators */}
-                    <div className="absolute -bottom-2 -right-2 flex space-x-1">
-                      <div className={`h-8 w-8 rounded-full flex items-center justify-center shadow-lg ${isMuted
-                        ? "bg-red-500 text-white"
-                        : "bg-green-500 text-white"
-                        }`}>
-                        {isMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                  {/* Video Overlay Effects */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+
+                  {/* Participant Info Overlay */}
+                  <div className="absolute bottom-0 left-0 right-0 p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <div className="px-2 py-1 bg-black/60 rounded-lg backdrop-blur-sm">
+                          <span className="text-white font-semibold text-sm">
+                            {participant.user_id === currentUser?.id ? 'You' : participant.username}
+                          </span>
+                        </div>
+                        {participant.role === 'host' && (
+                          <div className="px-2 py-1 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg">
+                            <span className="text-white text-xs font-bold">HOST</span>
+                          </div>
+                        )}
                       </div>
-                      {isHandRaised && (
-                        <motion.div
-                          className="h-8 w-8 rounded-full bg-yellow-500 text-white flex items-center justify-center shadow-lg"
-                          animate={{ rotate: [0, -15, 15, -15, 0] }}
-                          transition={{ duration: 0.6, repeat: Infinity, repeatDelay: 1.5 }}
-                        >
-                          <HandMetal className="h-4 w-4" />
-                        </motion.div>
-                      )}
+
+                      <div className="flex items-center space-x-1">
+                        {participant.is_muted && (
+                          <div className="p-1 bg-red-500/80 rounded-full">
+                            <MicOff className="h-3 w-3 text-white" />
+                          </div>
+                        )}
+                        {participant.hand_raised && (
+                          <motion.div
+                            className="p-1 bg-yellow-500/80 rounded-full"
+                            animate={{ rotate: [0, -10, 10, -10, 0] }}
+                            transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
+                          >
+                            <HandMetal className="h-3 w-3 text-white" />
+                          </motion.div>
+                        )}
+                        {!participant.video_enabled && (
+                          <div className="p-1 bg-gray-500/80 rounded-full">
+                            <VideoOff className="h-3 w-3 text-white" />
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        ) : (
+          /* Audio-Only Flexbox Layout */
+          <div className="flex flex-wrap gap-6 items-center justify-center py-6">
+            {participants.map((participant) => (
+              <motion.div
+                key={participant.user_id}
+                className="relative group"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: "spring", stiffness: 200 }}
+              >
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <div>
+                      <Avatar className="h-20 w-20 border-2 border-white/10 shadow-lg transition-all duration-300 group-hover:scale-105">
+                        <AvatarImage src={`https://i.pravatar.cc/150?u=${participant.user_id}`} />
+                        <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-500 text-white font-semibold">
+                          {participant.username?.[0]?.toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
 
-                  <p className="mt-4 text-center font-bold text-white text-lg">You</p>
-                </motion.div>
+                      {/* Audio Visualizer Ring for current user */}
+                      {participant.user_id === currentUser?.id && (
+                        <motion.div
+                          className="absolute inset-0 rounded-full border-2 border-purple-400"
+                          animate={{
+                            scale: isMuted ? 1 : [1, 1.1, 1],
+                            opacity: isMuted ? 0.3 : [0.3, 0.8, 0.3]
+                          }}
+                          transition={{ duration: 1, repeat: Infinity }}
+                        />
+                      )}
 
-                {/* Other Participants in Orbit */}
-                {participants.filter(p => p.user_id !== currentUser?.id).map((participant, index) => {
-                  const angle = (index / Math.max(participants.length - 1, 1)) * 2 * Math.PI;
-                  const radius = 200;
-                  const x = Math.cos(angle) * radius;
-                  const y = Math.sin(angle) * radius;
+                      {/* Speaking Animation for other participants */}
+                      {participant.user_id !== currentUser?.id && !participant.is_muted && (
+                        <motion.div
+                          className="absolute inset-0 rounded-full border-2 border-green-400"
+                          animate={{
+                            scale: [1, 1.2, 1],
+                            opacity: [0.3, 0.8, 0.3]
+                          }}
+                          transition={{ duration: 1.5, repeat: Infinity }}
+                        />
+                      )}
 
-                  return (
-                    <motion.div
-                      key={participant.user_id}
-                      className="absolute top-1/2 left-1/2"
-                      style={{
-                        transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`
-                      }}
-                      initial={{ opacity: 0, scale: 0 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: index * 0.2, type: "spring" }}
-                    >
-                      <div className="relative group">
-                        <Avatar className="h-20 w-20 border-3 border-white/20 group-hover:border-purple-400 transition-all duration-300 shadow-xl">
-                          <AvatarImage src={`https://i.pravatar.cc/150?u=${participant.user_id}`} />
-                          <AvatarFallback className="text-2xl bg-gradient-to-br from-blue-600 to-purple-600 text-white">
-                            {participant.username?.[0]?.toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-
-                        {/* Speaking Animation */}
-                        {!participant.is_muted && (
-                          <motion.div
-                            className="absolute inset-0 rounded-full border-2 border-green-400"
-                            animate={{
-                              scale: [1, 1.2, 1],
-                              opacity: [0.3, 0.8, 0.3]
-                            }}
-                            transition={{ duration: 1.5, repeat: Infinity }}
-                          />
+                      {/* Status Indicators */}
+                      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex space-x-1">
+                        {participant.is_muted && (
+                          <div className="h-6 w-6 bg-red-500 rounded-full flex items-center justify-center">
+                            <MicOff className="h-3 w-3 text-white" />
+                          </div>
                         )}
-
-                        {/* Status Badges */}
-                        <div className="absolute -bottom-1 -right-1 flex flex-col space-y-1">
-                          <div className={`h-6 w-6 rounded-full flex items-center justify-center text-white text-xs shadow-lg ${participant.is_muted ? "bg-red-500" : "bg-green-500"
-                            }`}>
-                            {participant.is_muted ? <MicOff className="h-3 w-3" /> : <Mic className="h-3 w-3" />}
-                          </div>
-                          {participant.hand_raised && (
-                            <motion.div
-                              className="h-6 w-6 rounded-full bg-yellow-500 text-white flex items-center justify-center shadow-lg"
-                              animate={{ rotate: [0, -10, 10, -10, 0] }}
-                              transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
-                            >
-                              <HandMetal className="h-3 w-3" />
-                            </motion.div>
-                          )}
-                        </div>
-
-                        {/* Name Label */}
-                        <div className="absolute top-full mt-2 left-1/2 transform -translate-x-1/2 whitespace-nowrap">
-                          <div className="px-2 py-1 bg-black/60 rounded-lg backdrop-blur-sm">
-                            <p className="text-white text-sm font-medium">
-                              {participant.username}
-                              {participant.role === 'host' && (
-                                <span className="ml-1 text-xs text-yellow-400">HOST</span>
-                              )}
-                            </p>
-                          </div>
-                        </div>
+                        {participant.hand_raised && (
+                          <motion.div
+                            className="h-6 w-6 bg-yellow-500 rounded-full flex items-center justify-center"
+                            animate={{ rotate: [0, -10, 10, -10, 0] }}
+                            transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
+                          >
+                            <HandMetal className="h-3 w-3 text-white" />
+                          </motion.div>
+                        )}
                       </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
+
+                      {/* Username and role */}
+                      <div className="mt-2 text-center">
+                        <span className="text-white font-semibold text-sm">
+                          {participant.user_id === currentUser?.id ? "You" : participant.username}
+                        </span>
+                        {participant.role === "host" && (
+                          <span className="ml-2 px-2 py-1 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg text-white text-xs font-bold">
+                            HOST
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </DropdownMenuTrigger>
+                  {/* Only show dropdown for others */}
+                  {participant.user_id !== currentUser?.id && (
+                    <DropdownMenuContent className="z-50">
+                      <DropdownMenuItem onClick={() => handleOpenReport(participant)}>
+                        Report
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  )}
+                </DropdownMenu>
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </div>
 
         {/* Enhanced Chat Panel */}
         <AnimatePresence>
@@ -1816,110 +1810,29 @@ const LiveRoom = () => {
         )}
       </AnimatePresence>
 
-      {/* Connection Status Indicator */}
-      <AnimatePresence>
-        {wsRef.current?.readyState !== WebSocket.OPEN && (
-          <motion.div
-            className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50"
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-          >
-            <div className="bg-red-500/20 border border-red-500/50 text-red-400 px-4 py-2 rounded-lg backdrop-blur-sm shadow-lg">
-              <div className="flex items-center">
-                <div className="h-2 w-2 bg-red-400 rounded-full mr-2 animate-pulse"></div>
-                <span className="text-sm font-medium">Reconnecting...</span>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Screen Share Indicator */}
-      <AnimatePresence>
-        {room?.screen_sharing_active && (
-          <motion.div
-            className="fixed top-20 right-4 z-50"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-          >
-            <div className="bg-green-500/20 border border-green-500/50 text-green-400 px-3 py-2 rounded-lg backdrop-blur-sm shadow-lg">
-              <div className="flex items-center">
-                <div className="h-2 w-2 bg-green-400 rounded-full mr-2 animate-pulse"></div>
-                <span className="text-sm font-medium">Screen sharing active</span>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Participants Count Indicator for Mobile */}
-      <div className="sm:hidden fixed top-4 left-4 z-40">
-        <motion.div
-          className="bg-black/40 backdrop-blur-sm border border-white/10 text-white px-3 py-2 rounded-xl shadow-lg"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          <div className="flex items-center space-x-2">
-            <div className="flex -space-x-2">
-              {participants.slice(0, 3).map((participant, index) => (
-                <Avatar key={participant.user_id} className="h-6 w-6 border-2 border-white/20">
-                  <AvatarImage src={`https://i.pravatar.cc/150?u=${participant.user_id}`} />
-                  <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-500 text-white text-xs">
-                    {participant.username?.[0]?.toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-              ))}
-              {participants.length > 3 && (
-                <div className="h-6 w-6 bg-gray-600 rounded-full border-2 border-white/20 flex items-center justify-center">
-                  <span className="text-xs text-white">+{participants.length - 3}</span>
-                </div>
-              )}
-            </div>
-            <span className="text-sm font-medium">{participants.length}</span>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Room Info Header for Mobile */}
-      <div className="sm:hidden fixed top-4 left-1/2 transform -translate-x-1/2 z-40">
-        <motion.div
-          className="bg-black/40 backdrop-blur-sm border border-white/10 text-white px-4 py-2 rounded-xl shadow-lg max-w-xs"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <div className="text-center">
-            <h2 className="font-semibold text-sm truncate">{room?.name}</h2>
-            <p className="text-xs text-white/70">
-              {isVideoMode ? 'Video Call' : 'Voice Call'}
-            </p>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Hand Raised Notifications */}
-      <AnimatePresence>
-        {participants.filter(p => p.hand_raised && p.user_id !== currentUser?.id).map((participant) => (
-          <motion.div
-            key={`hand-${participant.user_id}`}
-            className="fixed top-32 right-4 z-50"
-            initial={{ opacity: 0, x: 100 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 100 }}
-          >
-            <div className="bg-yellow-500/20 border border-yellow-500/50 text-yellow-400 px-4 py-3 rounded-lg backdrop-blur-sm shadow-lg max-w-xs">
-              <div className="flex items-center">
-                <HandMetal className="h-4 w-4 mr-2" />
-                <div>
-                  <p className="text-sm font-medium">{participant.username}</p>
-                  <p className="text-xs opacity-70">has raised their hand</p>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        ))}
-      </AnimatePresence>
+      {/* Report User Modal */}
+      <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Report {reportTarget?.username}</DialogTitle>
+          </DialogHeader>
+          <Textarea
+            className="w-full min-h-[100px] mt-4"
+            placeholder="Describe the reason for reporting this user..."
+            value={reportReason}
+            onChange={e => setReportReason(e.target.value)}
+          />
+          <DialogFooter>
+            <Button
+              className="bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-xl px-6 py-2"
+              onClick={handleSubmitReport}
+              disabled={!reportReason.trim()}
+            >
+              Submit
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

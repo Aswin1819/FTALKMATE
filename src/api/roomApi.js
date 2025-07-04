@@ -146,7 +146,14 @@ export const roomApi = {
       console.error('Error fetching languages:', error);
       throw error;
     }
-  }
+  },
+  reportUser: async (roomId, reportedUserId, reason) => {
+  const response = await axiosInstance.post(
+    `http://127.0.0.1:8000/api/rooms/${roomId}/report/${reportedUserId}/`,
+    { reason }
+  );
+  return response.data;
+}
 
 };
 

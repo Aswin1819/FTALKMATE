@@ -23,53 +23,29 @@ import { Badge } from '../../../components/ui/badge';
 import { logoutUser } from '../../../features/auth/authThunks';
 import { useDispatch , useSelector } from 'react-redux';
 import { toast } from '../../../hooks/use-toast';
-
-// Sample notifications data
-const sampleNotifications = [
-  {
-    id: '1',
-    title: 'New Follower',
-    message: 'Sarah started following you',
-    time: '2m ago',
-    read: false,
-    type: 'follow'
-  },
-  {
-    id: '2',
-    title: 'Room Invitation',
-    message: 'You have been invited to join "Spanish Practice" room',
-    time: '1h ago',
-    read: false,
-    type: 'room'
-  },
-  {
-    id: '3',
-    title: 'Level Up!',
-    message: 'Congratulations! You reached Level 5',
-    time: '3h ago',
-    read: true,
-    type: 'system'
-  },
-  {
-    id: '4',
-    title: 'New Message',
-    message: 'Michael sent you a message',
-    time: '5h ago',
-    read: true,
-    type: 'alert'
-  }
-];
+import { fetchNotifications } from '../../../api/notificationsApi';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [notifications, setNotifications] = useState(sampleNotifications);
+  const [notifications, setNotifications] = useState([]);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
   const dispatch = useDispatch();
   const user = useSelector((state) => state.auth.user); 
   
 
+  useEffect(() => {
+    const getNotifications = async () => {
+      try {
+        const data = await fetchNotifications();
+        setNotifications(data);
+      } catch (err) {
+        setNotifications([]);
+      }
+    };
+    getNotifications();
+  }, []);
 
   const toggleSidebar = () => {
     setSidebarCollapsed(!sidebarCollapsed);

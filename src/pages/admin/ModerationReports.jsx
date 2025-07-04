@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Tabs, 
   TabsContent, 
@@ -42,81 +42,32 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import ReportDetailsModal from '../../components/admin/ReportDetailsModal';
 import { toast } from '../../hooks/use-toast';
+import adminModerationApi from '../../api/adminModerationApi';
 
 const ModerationReports = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterReason, setFilterReason] = useState('all');
   const [selectedReport, setSelectedReport] = useState(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [loading, setLoading] =  useState(true);
+  const [reports, setReports] = useState([]);
 
-  const [reports, setReports] = useState([
-    {
-      id: 1,
-      reason: "Inappropriate language",
-      reporter: "Alex Thompson",
-      reported: "James Wilson",
-      content: "This message contained offensive language directed at another user",
-      roomId: 4,
-      roomName: "French Beginners",
-      timestamp: new Date("2023-04-18T15:30:00Z"),
-      status: "pending"
-    },
-    {
-      id: 2,
-      reason: "Harassment",
-      reporter: "Emma Wilson",
-      reported: "Mike Peterson",
-      content: "User was sending repeated unwanted messages despite being asked to stop",
-      roomId: 1,
-      roomName: "English Casual Conversation",
-      timestamp: new Date("2023-04-17T12:45:00Z"),
-      status: "resolved"
-    },
-    {
-      id: 3,
-      reason: "Spam",
-      reporter: "Sarah Johnson",
-      reported: "Liu Wei",
-      content: "User was repeatedly posting advertisements in the chat",
-      roomId: 2,
-      roomName: "Japanese Study Group",
-      timestamp: new Date("2023-04-16T09:20:00Z"),
-      status: "pending"
-    },
-    {
-      id: 4,
-      reason: "Offensive content",
-      reporter: "Hans Mueller",
-      reported: "Sarah Johnson",
-      content: "User shared inappropriate image in the chat",
-      roomId: 3,
-      roomName: "Spanish Debate Club",
-      timestamp: new Date("2023-04-15T16:10:00Z"),
-      status: "pending"
-    },
-    {
-      id: 5,
-      reason: "Off-topic",
-      reporter: "Liu Wei",
-      reported: "Hans Mueller",
-      content: "User keeps changing the subject and disrupting serious language practice",
-      roomId: 5,
-      roomName: "Mandarin Practice",
-      timestamp: new Date("2023-04-14T10:35:00Z"),
-      status: "dismissed"
-    },
-    {
-      id: 6,
-      reason: "Impersonation",
-      reporter: "Mike Peterson",
-      reported: "Alex Thompson",
-      content: "This user is pretending to be a staff member",
-      roomId: 6,
-      roomName: "German Grammar Workshop",
-      timestamp: new Date("2023-04-13T14:25:00Z"),
-      status: "resolved"
-    },
-  ]);
+  
+
+  useEffect(() => {
+    const fetchReports = async () => {
+      setLoading(true);
+      try {
+        const data = await adminModerationApi.fetchReports();
+        setReports(data);
+      } catch (err) {
+        toast({ title: "Error", description: "Failed to fetch reports", variant: "destructive" });
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchReports();
+  }, []);
 
   const pendingReports = reports.filter(report => report.status === "pending");
   const resolvedReports = reports.filter(report => report.status === "resolved");
@@ -142,30 +93,23 @@ const ModerationReports = () => {
     setIsDetailsModalOpen(true);
   };
 
-  const handleResolveReport = (id) => {
-    setReports(reports.map(report => 
-      report.id === id 
-        ? { ...report, status: "resolved" } 
-        : report
-    ));
-
-    toast({
-      title: "Report Resolved",
-      description: `Report #${id} has been marked as resolved`,
-    });
+  const handleResolveReport = async (id) => {
+    try {
+      await adminModerationApi.updateReportStatus(id, 'resolved');
+      setReports(reports => reports.map(r => r.id === id ? { ...r, status: 'resolved' } : r));
+      toast({ title: "Report Resolved", description: `Report #${id} has been marked as resolved` });
+    } catch {
+      toast({ title: "Error", description: "Failed to resolve report", variant: "destructive" });
+    }
   };
-
-  const handleDismissReport = (id) => {
-    setReports(reports.map(report => 
-      report.id === id 
-        ? { ...report, status: "dismissed" } 
-        : report
-    ));
-
-    toast({
-      title: "Report Dismissed",
-      description: `Report #${id} has been marked as dismissed`,
-    });
+  const handleDismissReport = async (id) => {
+    try {
+      await adminModerationApi.updateReportStatus(id, 'dismissed');
+      setReports(reports => reports.map(r => r.id === id ? { ...r, status: 'dismissed' } : r));
+      toast({ title: "Report Dismissed", description: `Report #${id} has been marked as dismissed` });
+    } catch {
+      toast({ title: "Error", description: "Failed to dismiss report", variant: "destructive" });
+    }
   };
 
   const handleSuspendUser = (username) => {
