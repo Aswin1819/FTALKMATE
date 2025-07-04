@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState,useEffect} from 'react';
 import { 
   Table, 
   TableBody, 
@@ -43,6 +43,8 @@ import RoomDetailsModal from '../../components/admin/RoomDetailsModal';
 import EditRoomModal from '../../components/admin/EditRoomModal';
 import ModerationToolsModal from '../../components/admin/ModerationToolsModal';
 import DeleteConfirmationModal from '../../components/admin/DeleteConfirmationModal';
+import adminInstance from '../../features/auth/adminInstance';
+import { toast } from '../../hooks/use-toast';
 
 const RoomManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -55,15 +57,27 @@ const RoomManagement = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isModerationModalOpen, setIsModerationModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+
   
-  const [rooms, setRooms] = useState([
-    { id: 1, title: "English Casual Conversation", creator: "Sarah Johnson", type: "casual", language: "English", activeUsers: 8, status: "active", createdAt: "2023-04-15T14:30:00Z" },
-    { id: 2, title: "Japanese Study Group", creator: "Mike Peterson", type: "study", language: "Japanese", activeUsers: 5, status: "active", createdAt: "2023-04-16T10:15:00Z" },
-    { id: 3, title: "Spanish Debate Club", creator: "Emma Wilson", type: "debate", language: "Spanish", activeUsers: 0, status: "archived", createdAt: "2023-04-10T16:45:00Z" },
-    { id: 4, title: "French Beginners", creator: "Alex Thompson", type: "learning", language: "French", activeUsers: 12, status: "active", createdAt: "2023-04-18T09:30:00Z" },
-    { id: 5, title: "Mandarin Practice", creator: "Liu Wei", type: "practice", language: "Mandarin", activeUsers: 3, status: "active", createdAt: "2023-04-17T11:20:00Z" },
-    { id: 6, title: "German Grammar Workshop", creator: "Hans Mueller", type: "workshop", language: "German", activeUsers: 0, status: "archived", createdAt: "2023-04-12T15:10:00Z" },
-  ]);
+  const [rooms, setRooms] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+   // Fetch all rooms on mount
+  useEffect(() => {
+    const fetchRooms = async () => {
+      setLoading(true);
+      try {
+        const res = await adminInstance.get('/rooms/');
+        setRooms(res.data);
+      } catch (err) {
+        console.log("Error on Fetching room list",err)
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchRooms();
+  }, []);
 
   const filteredRooms = rooms.filter(room => {
     const matchesSearch = room.title.toLowerCase().includes(searchTerm.toLowerCase()) || room.creator.toLowerCase().includes(searchTerm.toLowerCase());
@@ -77,14 +91,41 @@ const RoomManagement = () => {
   const types = Array.from(new Set(rooms.map(room => room.type)));
   const statuses = Array.from(new Set(rooms.map(room => room.status)));
 
-  const handleViewRoom = (room) => {
-    setSelectedRoom(room);
+  // Fetch full room details for modal
+  const handleViewRoom = async (room) => {
     setIsDetailsModalOpen(true);
+    try {
+      const res = await adminInstance.get(`/rooms/${room.id}/`);
+      setSelectedRoom(res.data);
+    } catch (err) {
+      setIsDetailsModalOpen(false);
+      console.log("Error fetching room details:",err)
+      // Optionally show toast
+    }
   };
 
   const handleEditRoom = (room) => {
     setSelectedRoom(room);
     setIsEditModalOpen(true);
+  };
+
+  // Fixed handleRoomUpdated function
+  const handleRoomUpdated = async (updatedRoomId) => {
+    try {
+      // Fetch the updated room data from the server
+      const res = await adminInstance.get(`/rooms/${updatedRoomId}/`);
+      const updatedRoom = res.data;
+      
+      // Update the rooms state with the new data
+      setRooms(prevRooms => 
+        prevRooms.map(room => 
+          room.id === updatedRoom.id ? updatedRoom : room
+        )
+      );
+    } catch (err) {
+      console.log("Error fetching updated room data:", err);
+      // Optionally show toast for error
+    }
   };
 
   const handleModerateRoom = (room) => {
@@ -97,9 +138,24 @@ const RoomManagement = () => {
     setIsDeleteModalOpen(true);
   };
 
-  const confirmDeleteRoom = () => {
+  const confirmDeleteRoom = async () => {
     if (selectedRoom) {
-      setRooms(rooms.filter(room => room.id !== selectedRoom.id));
+      try {
+        await adminInstance.delete(`/rooms/${selectedRoom.id}/`);
+        setRooms(rooms.filter(room => room.id !== selectedRoom.id));
+        toast({
+              title: "Room Deleted",
+              description: "Room Deleted Successfully.",
+              variant: "success", 
+        });
+      } catch (err) {
+        console.log("Error Deleting Room",err);
+         toast({
+              title: "Error on Room Deletion",
+              description: "Backend Error on Room Deletion.",
+              variant: "destructive", 
+        });
+      }
       setIsDeleteModalOpen(false);
     }
   };
@@ -108,9 +164,9 @@ const RoomManagement = () => {
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-white">Room Management</h1>
-        <Button className="bg-gradient-to-r from-neon-purple to-neon-blue text-white">
+        {/* <Button className="bg-gradient-to-r from-neon-purple to-neon-blue text-white">
           Create New Room
-        </Button>
+        </Button> */}
       </div>
 
       {/* Stats Overview */}
@@ -229,75 +285,72 @@ const RoomManagement = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredRooms.length > 0 ? (
+                {filteredRooms.length > 0 ? (
                 filteredRooms.map((room) => (
-                  <TableRow key={room.id} className="border-b border-white/5 hover:bg-white/5">
+                    <TableRow key={room.id} className="border-b border-white/5 hover:bg-white/5">
                     <TableCell className="font-medium text-white">{room.title}</TableCell>
                     <TableCell>{room.creator}</TableCell>
                     <TableCell>
-                      <Badge className="bg-white/10 text-white hover:bg-white/20">
+                        <Badge className="bg-white/10 text-white hover:bg-white/20">
                         {room.type.charAt(0).toUpperCase() + room.type.slice(1)}
-                      </Badge>
+                        </Badge>
                     </TableCell>
                     <TableCell>{room.language}</TableCell>
                     <TableCell>{room.activeUsers}</TableCell>
                     <TableCell>
-                      <Badge className={`${
+                        <Badge className={`${
                         room.status === 'active' 
-                          ? 'bg-neon-green/20 text-neon-green hover:bg-neon-green/30' 
-                          : 'bg-gray-500/20 text-gray-400 hover:bg-gray-500/30'
-                      }`}>
+                            ? 'bg-neon-green/20 text-neon-green hover:bg-neon-green/30' 
+                            : 'bg-gray-500/20 text-gray-400 hover:bg-gray-500/30'
+                        }`}>
                         {room.status.charAt(0).toUpperCase() + room.status.slice(1)}
-                      </Badge>
+                        </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex space-x-1">
+                        <div className="flex space-x-1">
                         <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-white/10"
-                          onClick={() => handleViewRoom(room)}
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-white/10"
+                            onClick={() => handleViewRoom(room)}
                         >
-                          <Eye className="h-4 w-4" />
+                            <Eye className="h-4 w-4" />
                         </Button>
-
                         <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-white/10"
-                          onClick={() => handleEditRoom(room)}
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-white/10"
+                            onClick={() => handleEditRoom(room)}
                         >
-                          <Edit className="h-4 w-4" />
+                            <Edit className="h-4 w-4" />
                         </Button>
-
                         <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-white/10"
-                          onClick={() => handleModerateRoom(room)}
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-white/10"
+                            onClick={() => handleModerateRoom(room)}
                         >
-                          <MessageSquare className="h-4 w-4" />
+                            <MessageSquare className="h-4 w-4" />
                         </Button>
-
                         <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 p-0 text-gray-400 hover:text-red-400 hover:bg-white/10"
-                          onClick={() => handleDeleteRoom(room)}
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 p-0 text-gray-400 hover:text-red-400 hover:bg-white/10"
+                            onClick={() => handleDeleteRoom(room)}
                         >
-                          <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4" />
                         </Button>
-                      </div>
+                        </div>
                     </TableCell>
-                  </TableRow>
+                    </TableRow>
                 ))
-              ) : (
+                ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center text-gray-500">
+                    <TableCell colSpan={7} className="h-24 text-center text-gray-500">
                     No rooms match your search criteria
-                  </TableCell>
+                    </TableCell>
                 </TableRow>
-              )}
+                )}
             </TableBody>
           </Table>
         </div>
@@ -309,19 +362,17 @@ const RoomManagement = () => {
         onClose={() => setIsDetailsModalOpen(false)} 
         room={selectedRoom} 
       />
-
       <EditRoomModal 
         isOpen={isEditModalOpen} 
         onClose={() => setIsEditModalOpen(false)} 
-        room={selectedRoom} 
-      />
-
+        room={selectedRoom}
+        onRoomUpdated={handleRoomUpdated}
+        />
       <ModerationToolsModal 
         isOpen={isModerationModalOpen} 
         onClose={() => setIsModerationModalOpen(false)} 
         room={selectedRoom} 
       />
-
       <DeleteConfirmationModal 
         isOpen={isDeleteModalOpen} 
         onClose={() => setIsDeleteModalOpen(false)} 

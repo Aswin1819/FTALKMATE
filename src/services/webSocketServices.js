@@ -10,6 +10,7 @@ class WebSocketService {
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
     this.reconnectInterval = 3000;
+    this.messageQueue = []; // Queue messages while disconnected
   }
 
   async connect(roomId) {
@@ -40,6 +41,13 @@ class WebSocketService {
       console.log('WebSocket connected');
       this.isConnected = true;
       this.reconnectAttempts = 0;
+      
+      // Send queued messages
+      while (this.messageQueue.length > 0) {
+        const message = this.messageQueue.shift();
+        this.socket.send(JSON.stringify(message));
+      }
+      
       this.triggerHandler('connection', { status: 'connected' });
     };
 
@@ -101,14 +109,20 @@ class WebSocketService {
       case 'webrtc_answer':
         this.triggerHandler('webrtc_answer', data);
         break;
-      case 'ice_candidate':
+      case 'webrtc_ice_candidate':
         this.triggerHandler('ice_candidate', data);
         break;
       case 'user_mute_toggle':
         this.triggerHandler('user_mute_toggle', data);
         break;
+      case 'user_video_toggle':
+        this.triggerHandler('user_video_toggle', data);
+        break;
       case 'hand_raised':
         this.triggerHandler('hand_raised', data);
+        break;
+      case 'audio_connection_request':
+        this.triggerHandler('audio_connection_request', data);
         break;
       default:
         console.log('Unknown message type:', type, data);
@@ -152,7 +166,9 @@ class WebSocketService {
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
       this.socket.send(JSON.stringify(data));
     } else {
-      console.error('WebSocket is not connected');
+      // Queue message if not connected
+      this.messageQueue.push(data);
+      console.warn('WebSocket is not connected, message queued');
     }
   }
 
@@ -197,10 +213,24 @@ class WebSocketService {
     });
   }
 
+  toggleVideo(videoEnabled) {
+    this.send({
+      type: 'toggle_video',
+      video_enabled: videoEnabled
+    });
+  }
+
   raiseHand(handRaised) {
     this.send({
       type: 'raise_hand',
       hand_raised: handRaised
+    });
+  }
+
+  // Request audio connection to all users (for default audio mode)
+  requestAudioConnection() {
+    this.send({
+      type: 'request_audio_connection'
     });
   }
 
@@ -210,6 +240,7 @@ class WebSocketService {
       this.socket = null;
       this.isConnected = false;
       this.roomId = null;
+      this.messageQueue = [];
     }
   }
 

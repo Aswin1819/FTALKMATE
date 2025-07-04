@@ -1,4 +1,4 @@
-import axios from 'axios';
+
 import axiosInstance from '../features/auth/axiosInstance';
 
 
@@ -20,7 +20,7 @@ export const roomApi = {
   createRoom: async (roomData) => {
     try {
       const response = await axiosInstance.post(
-        'http://127.0.0.1:8000/api/rooms/create/', roomData);
+        'http://127.0.0.1:8000/api/rooms/create/', roomData);  
       return response.data;
     } catch (error) {
       console.error('Error creating room:', error);

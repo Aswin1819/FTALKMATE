@@ -44,29 +44,15 @@ const formSchema = z.object({
   }).optional(),
   max_participants: z.number().min(2, {
     message: 'Room must allow at least 2 participants.',
-  }).max(50, {
-    message: 'Maximum 50 participants allowed.',
+  }).max(20, {
+    message: 'Maximum 20 participants allowed.',
   }),
   is_private: z.boolean().default(false),
   password: z.string().optional(),
   tags: z.array(z.number()).default([]),
 });
 
-// Language options (you might want to fetch these from backend too)
-// const languageOptions = [
-//   { id: 1, name: 'English' },
-//   { id: 2, name: 'Spanish' },
-//   { id: 3, name: 'French' },
-//   { id: 4, name: 'German' },
-//   { id: 5, name: 'Italian' },
-//   { id: 6, name: 'Portuguese' },
-//   { id: 7, name: 'Japanese' },
-//   { id: 8, name: 'Korean' },
-//   { id: 9, name: 'Mandarin' },
-//   { id: 10, name: 'Arabic' },
-//   { id: 11, name: 'Russian' },
-//   { id: 12, name: 'Hindi' },
-// ];
+
 
 const CreateRoomDialog = ({ isOpen, onClose, onRoomCreated, roomTypes = [], tags = [], languages = [] }) => {
   const [loading, setLoading] = useState(false);
@@ -81,10 +67,10 @@ const CreateRoomDialog = ({ isOpen, onClose, onRoomCreated, roomTypes = [], tags
       room_type: '',
       language: '',
       description: '',
-      max_participants: 10,
+      max_participants: 5,
       is_private: false,
       password: '',
-      tags: [],
+      tag_ids: [],
     },
   });
 
@@ -135,7 +121,7 @@ const CreateRoomDialog = ({ isOpen, onClose, onRoomCreated, roomTypes = [], tags
         max_participants: data.max_participants,
         is_private: data.is_private,
         password: data.is_private ? data.password : '',
-        tags: data.tags, // Array of tag IDs
+        tag_ids: data.tags, // Array of tag IDs
       };
 
       console.log('Creating room with data:', roomData);
@@ -145,6 +131,7 @@ const CreateRoomDialog = ({ isOpen, onClose, onRoomCreated, roomTypes = [], tags
       // Call the callback to update the parent component
       if (onRoomCreated) {
         onRoomCreated(newRoom);
+        console.log("New romm:",newRoom)
       }
       
       // Close the dialog
@@ -298,7 +285,7 @@ const CreateRoomDialog = ({ isOpen, onClose, onRoomCreated, roomTypes = [], tags
                           <Input
                             type="number"
                             min="2"
-                            max="50"
+                            max="20"
                             className="bg-white/5 border-white/10 text-white pl-10 focus:border-neon-purple"
                             {...field}
                             onChange={(e) => field.onChange(parseInt(e.target.value) || 2)}
@@ -306,7 +293,7 @@ const CreateRoomDialog = ({ isOpen, onClose, onRoomCreated, roomTypes = [], tags
                         </div>
                       </FormControl>
                       <FormDescription className="text-gray-400 text-xs">
-                        Between 2 and 50 participants
+                        Between 2 and 20 participants
                       </FormDescription>
                       <FormMessage />
                     </FormItem>

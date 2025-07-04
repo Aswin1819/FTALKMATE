@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '../../../components/ui/avatar';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
-import { Mic, MicOff, Video, VideoOff, MessageCircle, X, Send, LogOut, HandMetal } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, MessageCircle, X, Send, LogOut, HandMetal, PhoneOff, Users } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { toast } from '../../../hooks/use-toast';
 import roomApi from '../../../api/roomApi';
@@ -13,14 +13,19 @@ import { fetchAccessToken } from '../../../api/auth';
 const LiveRoom = () => {
   const { roomId } = useParams();
   const navigate = useNavigate();
-  
+
   // WebSocket and WebRTC refs
   const wsRef = useRef(null);
   const localStreamRef = useRef(null);
   const localVideoRef = useRef(null);
-  const peerConnectionsRef = useRef({});
-  const remoteVideosRef = useRef({});
-  
+  const peerConnectionsRef = useRef({}); // userId -> RTCPeerConnection
+  const remoteStreamsRef = useRef({}); // userId -> MediaStream
+  const iceCandidateQueueRef = useRef({}); // userId -> ICE candidates array
+  const connectionStatesRef = useRef({}); // userId -> connection state
+
+  const processedMessages = useRef(new Set()); // For deduplication
+  const connectionStates = useRef({}); // For connection state tracking
+
   // Room state
   const [room, setRoom] = useState(null);
   const [participants, setParticipants] = useState([]);
@@ -28,23 +33,26 @@ const LiveRoom = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   // Media controls
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
   const [videoEnabled, setVideoEnabled] = useState(false);
   const [isVideoMode, setIsVideoMode] = useState(false);
   const [mediaReady, setMediaReady] = useState(false);
-  
+
   // UI state
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [messageInput, setMessageInput] = useState('');
   const [isHandRaised, setIsHandRaised] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isWebSocketOpen, setIsWebSocketOpen] = useState(false);
 
   // WebRTC configuration
   const rtcConfiguration = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' }
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' }
     ]
   };
 
@@ -52,26 +60,24 @@ const LiveRoom = () => {
   const initializeRoom = useCallback(async () => {
     try {
       setLoading(true);
-      
-      // Fetch room details
       const roomData = await roomApi.getRoomDetails(roomId);
       setRoom(roomData);
-      
-      // Fetch participants
+
       const participantsData = await roomApi.getRoomParticipants(roomId);
       setParticipants(participantsData);
-      
-      // Fetch recent messages
+
       const messagesData = await roomApi.getRoomMessages(roomId);
-      setChatMessages(messagesData.reverse()); // Reverse to show newest at bottom
-      
-      // Get current user from token or context
+      setChatMessages(messagesData.reverse());
+
       const token = await fetchAccessToken();
       if (token) {
-        const userData = JSON.parse(atob(token.split('.')[1])); // Decode JWT payload
-        setCurrentUser({ id: userData.user_id, username: userData.username });
+        console.log("Token in LiveRoom:", token);
+        const userData = JSON.parse(atob(token.split('.')[1]));
+        setCurrentUser({
+          id: userData.user_id,
+          username: userData.username
+        });
       }
-      
     } catch (err) {
       console.error('Error initializing room:', err);
       setError('Failed to load room data');
@@ -86,444 +92,721 @@ const LiveRoom = () => {
   }, [roomId]);
 
   // Initialize media stream
-    const initializeMedia = useCallback(async () => {
+  const initializeMedia = useCallback(async () => {
     try {
-        // Request both audio and video permissions upfront
-        const stream = await navigator.mediaDevices.getUserMedia({
+      const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
-        video: true // Request video permission initially
-        });
-        
-        localStreamRef.current = stream;
-        
-        // Mute audio by default
-        stream.getAudioTracks().forEach(track => {
+        video: true
+      });
+
+      localStreamRef.current = stream;
+
+      // Set initial states
+      stream.getAudioTracks().forEach(track => {
         track.enabled = !isMuted;
-        });
-        
-        // Disable video by default (but keep the track)
-        stream.getVideoTracks().forEach(track => {
-        track.enabled = false;
-        });
-        
-        // Set local video immediately if we have video ref
-        if (localVideoRef.current && stream) {
+      });
+
+      stream.getVideoTracks().forEach(track => {
+        track.enabled = videoEnabled;
+      });
+
+      if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
-        }
-        
-        setMediaReady(true);
-        
+        localVideoRef.current.play().catch(e => console.log('Video play failed:', e));
+      }
+
+      setMediaReady(true);
+      console.log('Media initialized successfully');
     } catch (err) {
-        console.error('Error accessing media devices:', err);
-        setMediaReady(false);
-        toast({
+      console.error('Error accessing media devices:', err);
+      setMediaReady(false);
+      toast({
         title: "Media Access Error",
         description: "Could not access camera/microphone. Please check permissions.",
         variant: "destructive"
-        });
+      });
     }
-    }, [isMuted]);
+  }, []);
 
-  // WebSocket connection
+  // --- Fix WebSocket connection multiplicity ---
   const connectWebSocket = useCallback(async () => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      console.log('WebSocket already connected');
+      return;
+    }
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
     try {
       const token = await fetchAccessToken();
       if (!token) {
         throw new Error('No access token available');
       }
-
       const wsUrl = `ws://localhost:8000/ws/room/${roomId}/?token=${token}`;
       wsRef.current = new WebSocket(wsUrl);
-
       wsRef.current.onopen = () => {
         console.log('WebSocket connected');
+        setIsWebSocketOpen(true);
       };
-
       wsRef.current.onmessage = (event) => {
-        const data = JSON.parse(event.data);
+        let data;
+        try {
+          data = JSON.parse(event.data);
+        } catch (e) {
+          console.error('Invalid WebSocket message:', event.data);
+          return;
+        }
+        // --- Message deduplication ---
+        const messageId = data.message_id || data.id || (data.type + '-' + (data.from_user_id || data.user_id || '') + '-' + (data.timestamp || ''));
+        if (processedMessages.current.has(messageId)) {
+          //console.log('Duplicate message, skipping:', messageId);
+          return;
+        }
+        processedMessages.current.add(messageId);
         handleWebSocketMessage(data);
       };
-
       wsRef.current.onclose = (event) => {
         console.log('WebSocket disconnected:', event.code, event.reason);
-        if (event.code !== 1000) { // Not a normal closure
-          // Attempt to reconnect after 3 seconds
+        setIsWebSocketOpen(false);
+        if (event.code !== 1000) {
           setTimeout(connectWebSocket, 3000);
         }
       };
-
       wsRef.current.onerror = (error) => {
         console.error('WebSocket error:', error);
+        setIsWebSocketOpen(false);
         toast({
           title: "Connection Error",
           description: "Lost connection to room. Attempting to reconnect...",
           variant: "destructive"
         });
       };
-
     } catch (err) {
       console.error('Error connecting WebSocket:', err);
       setError('Failed to connect to room');
     }
   }, [roomId]);
 
-  // Handle WebSocket messages
-  const handleWebSocketMessage = useCallback((data) => {
-    switch (data.type) {
-      case 'room_state':
-        setParticipants(data.participants || []);
-        break;
-        
-      case 'user_joined':
-        setParticipants(prev => {
-          const exists = prev.find(p => p.user_id === data.user_id);
-          if (!exists) {
-            return [...prev, {
-              user_id: data.user_id,
-              username: data.username,
-              role: 'participant',
-              is_muted: false,
-              hand_raised: false,
-              joined_at: new Date().toISOString()
-            }];
-          }
-          return prev;
-        });
-        
-        toast({
-          title: "User Joined",
-          description: data.message,
-          variant: "default"
-        });
-        break;
-        
-      case 'user_left':
-        setParticipants(prev => prev.filter(p => p.user_id !== data.user_id));
-        toast({
-          title: "User Left",
-          description: data.message,
-          variant: "default"
-        });
-        break;
-        
-      case 'chat_message':
-        setChatMessages(prev => [...prev, {
-          id: data.message_id,
-          user: data.user_id,
-          username: data.username,
-          content: data.message,
-          sent_at: data.timestamp
-        }]);
-        break;
-        
-      case 'user_mute_toggle':
-        setParticipants(prev => prev.map(p => 
-          p.user_id === data.user_id 
-            ? { ...p, is_muted: data.is_muted }
-            : p
-        ));
-        break;
-        
-      case 'hand_raised':
-        setParticipants(prev => prev.map(p => 
-          p.user_id === data.user_id 
-            ? { ...p, hand_raised: data.hand_raised }
-            : p
-        ));
-        break;
-        
-      case 'webrtc_offer':
-        handleWebRTCOffer(data);
-        break;
-        
-      case 'webrtc_answer':
-        handleWebRTCAnswer(data);
-        break;
-        
-      case 'ice_candidate':
-        handleICECandidate(data);
-        break;
-        
-      default:
-        console.log('Unknown message type:', data.type);
+  // Send WebSocket message safely
+  const sendWebSocketMessage = useCallback((message) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(message));
+      return true;
     }
+    console.warn('WebSocket not ready, message not sent:', message);
+    return false;
   }, []);
 
-  // WebRTC Peer Connection Management
+  // --- Enhanced createPeerConnection with improved ontrack handler and signaling guards ---
   const createPeerConnection = useCallback((userId) => {
+    console.log(`Creating peer connection for user ${userId}`);
+
     const peerConnection = new RTCPeerConnection(rtcConfiguration);
-    
-    // Add local stream to peer connection
+
+    // Set connection state
+    connectionStatesRef.current[userId] = 'creating';
+
+    // Add local stream tracks
     if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach(track => {
+      localStreamRef.current.getTracks().forEach(track => {
+        console.log(`Adding ${track.kind} track to peer connection for user ${userId}`);
         peerConnection.addTrack(track, localStreamRef.current);
-        });
+      });
     }
-    
+
     // Handle ICE candidates
-  peerConnection.onicecandidate = (event) => {
-    if (event.candidate && wsRef.current) {
-      wsRef.current.send(JSON.stringify({
-        type: 'webrtc_ice_candidate',
-        target_user_id: userId,
-        candidate: event.candidate
-      }));
-    }
-  };
-    
-    // Handle remote stream
-    peerConnection.ontrack = (event) => {
-        console.log('Received remote stream from user:', userId);
-        const [remoteStream] = event.streams;
-        
-        // Create or update remote video element
-        if (remoteStream) {
-        // Store the stream for this user
-        remoteVideosRef.current[userId] = remoteStream;
-        
-        // Update participants to trigger re-render
-        setParticipants(prev => [...prev]);
-        }
+    peerConnection.onicecandidate = (event) => {
+      if (event.candidate) {
+        console.log(`Sending ICE candidate to user ${userId}`);
+        sendWebSocketMessage({
+          type: 'webrtc_ice_candidate',
+          target_user_id: userId,
+          candidate: event.candidate
+        });
+      }
     };
-    
+
+    // Enhanced ontrack handler: aggregate all tracks for a user
+    peerConnection.ontrack = (event) => {
+      let remoteStream = remoteStreamsRef.current[userId];
+      if (!remoteStream) {
+        remoteStream = new MediaStream();
+        remoteStreamsRef.current[userId] = remoteStream;
+      }
+      event.streams[0].getTracks().forEach(track => {
+        if (!remoteStream.getTracks().some(t => t.id === track.id)) {
+          remoteStream.addTrack(track);
+        }
+      });
+      setParticipants(prev => [...prev]); // Force re-render
+    };
+
+    // Connection state monitoring
+    peerConnection.onconnectionstatechange = () => {
+      const state = peerConnection.connectionState;
+      console.log(`Peer connection state for user ${userId}: ${state}`);
+      connectionStatesRef.current[userId] = state;
+
+      if (state === 'failed' || state === 'disconnected') {
+        console.log(`Connection failed for user ${userId}, cleaning up`);
+        cleanupPeerConnection(userId);
+      }
+    };
+
+    peerConnection.oniceconnectionstatechange = () => {
+      console.log(`ICE connection state for user ${userId}: ${peerConnection.iceConnectionState}`);
+    };
+
+    peerConnection.onsignalingstatechange = () => {
+      console.log(`Signaling state for user ${userId}: ${peerConnection.signalingState}`);
+    };
+
     peerConnectionsRef.current[userId] = peerConnection;
     return peerConnection;
-    }, []);
+  }, [sendWebSocketMessage]);
 
+  // --- Enhanced cleanupPeerConnection ---
+  const cleanupPeerConnection = useCallback((userId) => {
+    console.log(`Cleaning up peer connection for user ${userId}`);
 
+    if (peerConnectionsRef.current[userId]) {
+      peerConnectionsRef.current[userId].close();
+      delete peerConnectionsRef.current[userId];
+    }
+
+    if (remoteStreamsRef.current[userId]) {
+      remoteStreamsRef.current[userId].getTracks().forEach(track => track.stop());
+      delete remoteStreamsRef.current[userId];
+    }
+
+    delete iceCandidateQueueRef.current[userId];
+    delete connectionStatesRef.current[userId];
+
+    setParticipants(prev => [...prev]);
+  }, []);
+
+  // --- Fix shouldInitiateConnection logic ---
+  const shouldInitiateConnection = useCallback((userId) => {
+    // Only the user with HIGHER ID should initiate
+    return currentUser && currentUser.id > userId;
+  }, [currentUser]);
+
+  // --- Add proper cleanup before creating new connection ---
+  const cleanupAndCreateConnection = async (userId) => {
+    if (peerConnectionsRef.current[userId]) {
+      peerConnectionsRef.current[userId].close();
+      delete peerConnectionsRef.current[userId];
+    }
+    if (remoteStreamsRef.current[userId]) {
+      remoteStreamsRef.current[userId].getTracks().forEach(track => track.stop());
+      delete remoteStreamsRef.current[userId];
+    }
+    if (iceCandidateQueueRef.current[userId]) {
+      iceCandidateQueueRef.current[userId] = [];
+    }
+    connectionStates.current[userId] = 'new';
+    await createPeerConnection(userId);
+  };
+
+  // --- Enhanced initiateWebRTCConnection with connectionStates and signaling state validation ---
+  const initiateWebRTCConnection = useCallback(async (userId) => {
+    if (connectionStates.current[userId] === 'connecting' || connectionStates.current[userId] === 'connected') {
+      return;
+    }
+    connectionStates.current[userId] = 'connecting';
+    try {
+      // Clean up before creating new connection
+      await cleanupAndCreateConnection(userId);
+      const peerConnection = peerConnectionsRef.current[userId] || createPeerConnection(userId);
+      // --- Signaling state guard before offer ---
+      const isValidStateForOffer = ['stable', 'have-local-offer'].includes(peerConnection.signalingState);
+      if (!isValidStateForOffer) {
+        console.warn(`Cannot create offer, signaling state is ${peerConnection.signalingState}`);
+        cleanupPeerConnection(userId);
+        connectionStates.current[userId] = 'failed';
+        return;
+      }
+      const offer = await peerConnection.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: true
+      });
+      await peerConnection.setLocalDescription(offer);
+      const success = sendWebSocketMessage({
+        type: 'webrtc_offer',
+        target_user_id: userId,
+        offer: offer
+      });
+      if (success) {
+        console.log(`Sent WebRTC offer to user ${userId}`);
+      } else {
+        throw new Error('Failed to send WebRTC offer');
+      }
+    } catch (err) {
+      console.error(`Error initiating WebRTC connection to user ${userId}:`, err);
+      cleanupPeerConnection(userId);
+      connectionStates.current[userId] = 'failed';
+    }
+  }, [shouldInitiateConnection, createPeerConnection, sendWebSocketMessage, cleanupPeerConnection]);
+
+  // --- Enhanced handleWebRTCOffer with signaling state validation ---
   const handleWebRTCOffer = useCallback(async (data) => {
     try {
-      const peerConnection = createPeerConnection(data.from_user_id);
-      await peerConnection.setRemoteDescription(data.offer);
-      
-      const answer = await peerConnection.createAnswer();
-      await peerConnection.setLocalDescription(answer);
-      
-      if (wsRef.current) {
-        wsRef.current.send(JSON.stringify({
-          type: 'webrtc_answer',
-          target_user_id: data.from_user_id,
-          answer: answer
-        }));
+      const { from_user_id, offer } = data;
+      console.log(`Received WebRTC offer from user ${from_user_id}`);
+      if (shouldInitiateConnection(from_user_id)) {
+        console.log(`Waiting for user ${from_user_id} to initiate connection`);
+        return;
       }
+      let peerConnection = peerConnectionsRef.current[from_user_id];
+      if (peerConnection) {
+        const signalingState = peerConnection.signalingState;
+        if (signalingState !== 'stable') {
+          console.log(`Cleaning up existing connection in state: ${signalingState}`);
+          cleanupPeerConnection(from_user_id);
+          peerConnection = null;
+        }
+      }
+      if (!peerConnection) {
+        peerConnection = createPeerConnection(from_user_id);
+      }
+      // --- Signaling state guard before setRemoteDescription ---
+      const isValidStateForOffer = ['stable', 'have-local-offer'].includes(peerConnection.signalingState);
+      if (!isValidStateForOffer) {
+        console.warn(`Cannot set remote description, signaling state is ${peerConnection.signalingState}`);
+        cleanupPeerConnection(from_user_id);
+        connectionStates.current[from_user_id] = 'failed';
+        return;
+      }
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+      console.log(`Set remote description for user ${from_user_id}`);
+      const answer = await peerConnection.createAnswer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: true
+      });
+      await peerConnection.setLocalDescription(answer);
+      const success = sendWebSocketMessage({
+        type: 'webrtc_answer',
+        target_user_id: from_user_id,
+        answer: answer
+      });
+      if (success) {
+        console.log(`Sent WebRTC answer to user ${from_user_id}`);
+      }
+      const queuedCandidates = iceCandidateQueueRef.current[from_user_id] || [];
+      for (const candidate of queuedCandidates) {
+        try {
+          await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+          console.log(`Added queued ICE candidate for user ${from_user_id}`);
+        } catch (err) {
+          console.error('Error adding queued ICE candidate:', err);
+        }
+      }
+      iceCandidateQueueRef.current[from_user_id] = [];
+      connectionStates.current[from_user_id] = 'connected';
     } catch (err) {
-      console.error('Error handling WebRTC offer:', err);
+      console.error(`Error handling WebRTC offer from ${data.from_user_id}:`, err);
+      cleanupPeerConnection(data.from_user_id);
+      connectionStates.current[data.from_user_id] = 'failed';
     }
-  }, [createPeerConnection]);
+  }, [shouldInitiateConnection, createPeerConnection, sendWebSocketMessage, cleanupPeerConnection]);
 
+  // --- Enhanced handleWebRTCAnswer with signaling state validation ---
   const handleWebRTCAnswer = useCallback(async (data) => {
     try {
-      const peerConnection = peerConnectionsRef.current[data.from_user_id];
-      if (peerConnection) {
-        await peerConnection.setRemoteDescription(data.answer);
+      const { from_user_id, answer } = data;
+      console.log(`Received WebRTC answer from user ${from_user_id}`);
+      const peerConnection = peerConnectionsRef.current[from_user_id];
+      if (!peerConnection) {
+        console.error(`No peer connection found for user ${from_user_id}`);
+        return;
       }
+      const signalingState = peerConnection.signalingState;
+      console.log(`Current signaling state: ${signalingState}`);
+      // Only handle answer if we're expecting one
+      const isValidStateForAnswer = ['have-remote-offer', 'have-local-offer'].includes(signalingState);
+      if (!isValidStateForAnswer) {
+        console.warn(`Received answer in wrong signaling state: ${signalingState}`);
+        return;
+      }
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+      console.log(`Set remote description (answer) for user ${from_user_id}`);
+      const queuedCandidates = iceCandidateQueueRef.current[from_user_id] || [];
+      for (const candidate of queuedCandidates) {
+        try {
+          await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+          console.log(`Added queued ICE candidate for user ${from_user_id}`);
+        } catch (err) {
+          console.error('Error adding queued ICE candidate:', err);
+        }
+      }
+      iceCandidateQueueRef.current[from_user_id] = [];
+      connectionStates.current[from_user_id] = 'connected';
     } catch (err) {
-      console.error('Error handling WebRTC answer:', err);
+      console.error(`Error handling WebRTC answer from ${data.from_user_id}:`, err);
+      connectionStates.current[data.from_user_id] = 'failed';
     }
   }, []);
 
+  // Handle ICE candidate
   const handleICECandidate = useCallback(async (data) => {
     try {
-      const peerConnection = peerConnectionsRef.current[data.from_user_id];
-      if (peerConnection) {
-        await peerConnection.addIceCandidate(data.candidate);
+      const { from_user_id, candidate } = data;
+
+      const peerConnection = peerConnectionsRef.current[from_user_id];
+      if (!peerConnection) {
+        console.warn(`No peer connection found for ICE candidate from user ${from_user_id}`);
+        return;
+      }
+
+      const iceCandidate = new RTCIceCandidate(candidate);
+
+      // Check if we can add the candidate now
+      if (peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
+        await peerConnection.addIceCandidate(iceCandidate);
+        console.log(`Added ICE candidate for user ${from_user_id}`);
+      } else {
+        // Queue the candidate
+        if (!iceCandidateQueueRef.current[from_user_id]) {
+          iceCandidateQueueRef.current[from_user_id] = [];
+        }
+        iceCandidateQueueRef.current[from_user_id].push(candidate);
+        console.log(`Queued ICE candidate for user ${from_user_id}`);
       }
     } catch (err) {
       console.error('Error handling ICE candidate:', err);
     }
   }, []);
 
-  // Initialize WebRTC connection to a user
-  const initiateWebRTCConnection = useCallback(async (userId) => {
-    try {
-      const peerConnection = createPeerConnection(userId);
-      const offer = await peerConnection.createOffer();
-      await peerConnection.setLocalDescription(offer);
-      
-      if (wsRef.current) {
-        wsRef.current.send(JSON.stringify({
-          type: 'webrtc_offer',
-          target_user_id: userId,
-          offer: offer
-        }));
+  // --- Connection retry tracking ---
+  const retryConnection = useRef({});
+
+  // --- Establish WebRTC connections for all participants (mesh) ---
+  const establishWebRTCConnections = useCallback(async () => {
+    if (!currentUser || !participants.length) return;
+    console.log('=== Establishing WebRTC Connections ===');
+    console.log('Current user:', currentUser.id);
+    console.log('All participants:', participants.map(p => p.user_id));
+
+    for (const participant of participants) {
+      if (participant.user_id === currentUser.id) continue;
+      const existingConnection = peerConnectionsRef.current[participant.user_id];
+      if (existingConnection &&
+          existingConnection.connectionState === 'connected' &&
+          existingConnection.signalingState === 'stable') {
+        console.log(`Connection to user ${participant.user_id} already stable`);
+        continue;
       }
-    } catch (err) {
-      console.error('Error initiating WebRTC connection:', err);
+      const shouldInitiate = currentUser.id > participant.user_id;
+      try {
+        if (shouldInitiate) {
+          console.log(`Initiating connection to user ${participant.user_id}`);
+          await initiateWebRTCConnection(participant.user_id);
+        } else {
+          console.log(`Waiting for user ${participant.user_id} to initiate connection`);
+        }
+      } catch (error) {
+        console.error(`Failed to connect to user ${participant.user_id}:`, error);
+        // Retry after delay
+        const retryCount = retryConnection.current[participant.user_id] || 0;
+        if (retryCount < 3) {
+          retryConnection.current[participant.user_id] = retryCount + 1;
+          setTimeout(() => {
+            establishWebRTCConnections();
+          }, 2000 * (retryCount + 1));
+        }
+      }
     }
-  }, [createPeerConnection]);
+  }, [currentUser, participants, initiateWebRTCConnection]);
+
+  // --- Connection status debugging ---
+  const logConnectionStatus = useCallback(() => {
+    if (!currentUser || !participants.length) return;
+    console.log('=== Connection Status ===');
+    console.log('Current user:', currentUser.id);
+    console.log('Participants:', participants.map(p => p.user_id));
+    participants.forEach(participant => {
+      if (participant.user_id === currentUser.id) return;
+      const connection = peerConnectionsRef.current[participant.user_id];
+      const stream = remoteStreamsRef.current[participant.user_id];
+      console.log(`User ${participant.user_id}:`, {
+        hasConnection: !!connection,
+        connectionState: connection?.connectionState,
+        signalingState: connection?.signalingState,
+        hasStream: !!stream,
+        streamTracks: stream?.getTracks()?.length || 0
+      });
+    });
+  }, [currentUser, participants]);
+
+  // --- Enhanced WebSocket message handler for user_joined and room_state ---
+  const handleWebSocketMessage = useCallback((data) => {
+    switch (data.type) {
+      case 'room_state':
+        setParticipants(data.participants || []);
+        // Force connection refresh for all users
+        setTimeout(() => {
+          establishWebRTCConnections();
+        }, 1000);
+        break;
+      case 'user_joined': {
+        // Always update with the full participant list from backend
+        if (data.participants) {
+          setParticipants(data.participants);
+          setTimeout(() => {
+            establishWebRTCConnections();
+          }, 1000);
+        } else {
+          setParticipants(prev => {
+            const exists = prev.find(p => p.user_id === data.user_id);
+            if (!exists) {
+              const newParticipant = {
+                user_id: data.user_id,
+                username: data.username,
+                role: 'participant',
+                is_muted: true,
+                hand_raised: false,
+                video_enabled: false,
+                joined_at: new Date().toISOString()
+              };
+              return [...prev, newParticipant];
+            }
+            return prev;
+          });
+          setTimeout(() => {
+            establishWebRTCConnections();
+          }, 1000);
+        }
+        toast({
+          title: "User Joined",
+          description: data.message,
+          variant: "default"
+        });
+        break;
+      }
+      case 'user_left': {
+        setParticipants(prev => prev.filter(p => p.user_id !== data.user_id));
+        cleanupPeerConnection(data.user_id);
+        setTimeout(() => {
+          establishWebRTCConnections();
+        }, 1000);
+        toast({
+          title: "User Left",
+          description: data.message,
+          variant: "default"
+        });
+        break;
+      }
+      case 'chat_message':
+        setChatMessages(prev => {
+          const messageExists = prev.some(msg =>
+            msg.id === data.message_id ||
+            (msg.content === data.message &&
+              msg.username === data.username &&
+              Math.abs(new Date(msg.sent_at) - new Date(data.timestamp)) < 1000)
+          );
+          if (messageExists) {
+            return prev;
+          }
+          const newMessage = {
+            id: data.message_id || Date.now(),
+            user: data.user_id,
+            username: data.username,
+            content: data.message,
+            sent_at: data.timestamp
+          };
+          if (!isChatOpen && data.user_id !== currentUser?.id) {
+            setUnreadCount(count => count + 1);
+          }
+          return [...prev, newMessage];
+        });
+        break;
+
+      case 'user_mute_toggle':
+        setParticipants(prev =>
+          prev.map(p =>
+            p.user_id === data.user_id
+              ? { ...p, is_muted: data.is_muted }
+              : p
+          )
+        );
+        break;
+
+      case 'user_video_toggle':
+        setParticipants(prev =>
+          prev.map(p =>
+            p.user_id === data.user_id
+              ? { ...p, video_enabled: data.video_enabled }
+              : p
+          )
+        );
+        break;
+
+      case 'hand_raised':
+        setParticipants(prev =>
+          prev.map(p =>
+            p.user_id === data.user_id
+              ? { ...p, hand_raised: data.hand_raised }
+              : p
+          )
+        );
+        break;
+
+      case 'webrtc_offer':
+        handleWebRTCOffer(data);
+        break;
+
+      case 'webrtc_answer':
+        handleWebRTCAnswer(data);
+        break;
+
+      case 'ice_candidate':
+        handleICECandidate(data);
+        break;
+
+      case 'audio_connection_request':
+        // Handle any specific audio connection logic if needed
+        console.log('Audio connection request from:', data.from_user_id);
+        break;
+
+      default:
+        console.log('Unknown message type:', data.type);
+    }
+  }, [isChatOpen, currentUser, establishWebRTCConnections, cleanupPeerConnection]);
+
+  // Establish WebRTC connections when participants change
+  useEffect(() => {
+    if (currentUser && participants.length > 1 && mediaReady && isWebSocketOpen) {
+      console.log('=== WebRTC Connection Setup ===');
+      console.log('Current user:', currentUser.id);
+      console.log('All participants:', participants.map(p => p.user_id));
+
+      // Add delay to ensure all participants are ready
+      const connectionTimer = setTimeout(() => {
+        participants.forEach(participant => {
+          if (participant.user_id !== currentUser.id) {
+            console.log(`Checking connection with user ${participant.user_id}`);
+
+            const existingConnection = peerConnectionsRef.current[participant.user_id];
+            const connectionState = connectionStatesRef.current[participant.user_id];
+
+            let shouldConnect = false;
+
+            if (!existingConnection) {
+              shouldConnect = true;
+              console.log(`No existing connection to user ${participant.user_id}`);
+            } else if (['closed', 'failed', 'disconnected'].includes(connectionState)) {
+              shouldConnect = true;
+              console.log(`Connection to user ${participant.user_id} failed: ${connectionState}`);
+            } else {
+              console.log(`Connection to user ${participant.user_id} exists: ${connectionState}`);
+            }
+
+            if (shouldConnect && shouldInitiateConnection(participant.user_id)) {
+              // Add random delay to prevent simultaneous connections
+              const delay = Math.random() * 2000 + 1000; // 1-3 seconds
+              setTimeout(() => {
+                initiateWebRTCConnection(participant.user_id);
+              }, delay);
+            }
+          }
+        });
+      }, 1000); // Initial delay for setup
+
+      return () => clearTimeout(connectionTimer);
+    }
+  }, [participants, currentUser, initiateWebRTCConnection, shouldInitiateConnection, mediaReady, isWebSocketOpen]);
 
   // Media control handlers
   const handleMuteToggle = useCallback(() => {
     const newMutedState = !isMuted;
-    setIsMuted(newMutedState);
-    
-    // Update local stream
+
     if (localStreamRef.current) {
       localStreamRef.current.getAudioTracks().forEach(track => {
         track.enabled = !newMutedState;
       });
     }
-    
-    // Send to WebSocket
-    if (wsRef.current) {
-      wsRef.current.send(JSON.stringify({
-        type: 'toggle_mute',
-        is_muted: newMutedState
-      }));
-    }
-  }, [isMuted]);
 
-  // handle Video Toogle
+    setIsMuted(newMutedState);
+
+    sendWebSocketMessage({
+      type: 'toggle_mute',
+      is_muted: newMutedState
+    });
+  }, [isMuted, sendWebSocketMessage]);
+
   const handleVideoToggle = useCallback(async () => {
-  const newVideoState = !videoEnabled;
-  setVideoEnabled(newVideoState);
-  
-  try {
-    if (localStreamRef.current) {
-      const videoTracks = localStreamRef.current.getVideoTracks();
-      
-      if (newVideoState && isVideoMode) {
-        // Enable existing video track
+    const newVideoState = !videoEnabled;
+
+    try {
+      if (localStreamRef.current) {
+        const videoTracks = localStreamRef.current.getVideoTracks();
         videoTracks.forEach(track => {
-          track.enabled = true;
+          track.enabled = newVideoState;
         });
-        
-        // If no video track exists, get a new one
-        if (videoTracks.length === 0) {
-          const videoStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: false
-          });
-          
-          const videoTrack = videoStream.getVideoTracks()[0];
-          localStreamRef.current.addTrack(videoTrack);
-          
-          // Update peer connections with new video track
-          Object.values(peerConnectionsRef.current).forEach(pc => {
-            pc.addTrack(videoTrack, localStreamRef.current);
-          });
-        }
-        
-        // Update local video display
+
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = localStreamRef.current;
         }
-      } else {
-        // Disable video tracks
-        videoTracks.forEach(track => {
-          track.enabled = false;
-        });
       }
+
+      setVideoEnabled(newVideoState);
+
+      sendWebSocketMessage({
+        type: 'toggle_video',
+        video_enabled: newVideoState
+      });
+    } catch (err) {
+      console.error('Error toggling video:', err);
+      toast({
+        title: "Video Error",
+        description: "Could not toggle video. Please check camera permissions.",
+        variant: "destructive"
+      });
     }
-  } catch (err) {
-    console.error('Error toggling video:', err);
-    setVideoEnabled(false);
-    toast({
-      title: "Video Error",
-      description: "Could not toggle video. Please check camera permissions.",
-      variant: "destructive"
-    });
-  }
-}, [videoEnabled, isVideoMode]);
-
-
+  }, [videoEnabled, sendWebSocketMessage]);
 
   const handleRaiseHand = useCallback(() => {
     const newHandState = !isHandRaised;
     setIsHandRaised(newHandState);
-    
-    if (wsRef.current) {
-      wsRef.current.send(JSON.stringify({
-        type: 'raise_hand',
-        hand_raised: newHandState
-      }));
-    }
-    
+
+    sendWebSocketMessage({
+      type: 'raise_hand',
+      hand_raised: newHandState
+    });
+
     toast({
       title: newHandState ? "Hand Raised" : "Hand Lowered",
       description: newHandState ? "Others have been notified" : "Hand lowered",
       variant: "default"
     });
-  }, [isHandRaised]);
-
+  }, [isHandRaised, sendWebSocketMessage]);
 
   const handleSendMessage = useCallback((e) => {
     e.preventDefault();
-    if (messageInput.trim() && wsRef.current) {
-      wsRef.current.send(JSON.stringify({
+
+    if (messageInput.trim()) {
+      sendWebSocketMessage({
         type: 'chat_message',
         message: messageInput.trim()
-      }));
+      });
       setMessageInput('');
     }
-  }, [messageInput]);
+  }, [messageInput, sendWebSocketMessage]);
 
-  //Function to remote render video
-  const renderRemoteVideo = (participant) => {
-    const remoteStream = remoteVideosRef.current[participant.user_id];
-    
-    if (remoteStream && isVideoMode) {
-      return (
-        <video
-          key={`remote-${participant.user_id}`}
-          autoPlay
-          playsInline
-          className="w-full h-full object-cover"
-          ref={(videoEl) => {
-            if (videoEl && remoteStream) {
-              videoEl.srcObject = remoteStream;
-            }
-          }}
-        />
-      );
-    }
-    
-    // Fallback to avatar
-    return (
-      <div className="w-full h-full bg-gradient-to-br from-black/80 to-black/40 flex items-center justify-center">
-        <Avatar className="h-20 w-20 border-2 border-white/10">
-          <AvatarImage src={`https://i.pravatar.cc/150?u=${participant.user_id}`} />
-          <AvatarFallback>{participant.username?.[0]?.toUpperCase()}</AvatarFallback>
-        </Avatar>
-      </div>
-    );
-  };
-
-  const handleLeaveRoom = useCallback(async () => {
-    try {
-      // Close WebSocket connection
-      if (wsRef.current) {
-        wsRef.current.close(1000, 'User left room');
+  const handleChatToggle = useCallback(() => {
+    setIsChatOpen(prev => {
+      if (!prev) {
+        setUnreadCount(0);
       }
-      
-      // Stop media streams
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach(track => track.stop());
-      }
-      
-      // Close peer connections
-      Object.values(peerConnectionsRef.current).forEach(pc => pc.close());
-      peerConnectionsRef.current = {};
-      
-      // Call API to leave room
-      await roomApi.leaveRoom(roomId);
-      
-      // Navigate back
-      navigate('/dashboard/explore');
-    } catch (err) {
-      console.error('Error leaving room:', err);
-      // Navigate anyway
-      navigate('/dashboard');
-    }
-  }, [roomId, navigate]);
+      return !prev;
+    });
+  }, []);
 
   const toggleVideoMode = useCallback(() => {
     const newVideoMode = !isVideoMode;
     setIsVideoMode(newVideoMode);
-    
+
     if (newVideoMode) {
-      // Enable video for everyone
-      setVideoEnabled(true);
       toast({
         title: "Video Mode Enabled",
         description: "Video calling is now active",
@@ -531,6 +814,11 @@ const LiveRoom = () => {
       });
     } else {
       setVideoEnabled(false);
+      if (localStreamRef.current) {
+        localStreamRef.current.getVideoTracks().forEach(track => {
+          track.enabled = false;
+        });
+      }
       toast({
         title: "Audio Mode",
         description: "Switched to audio-only mode",
@@ -539,292 +827,739 @@ const LiveRoom = () => {
     }
   }, [isVideoMode]);
 
-  
+  const handleLeaveRoom = useCallback(async () => {
+    try {
+      // Close WebSocket
+      if (wsRef.current) {
+        wsRef.current.close(1000, 'User left room');
+      }
 
-  // Format time helper
+      // Stop local media
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(track => track.stop());
+      }
+
+      // Clean up all peer connections
+      Object.keys(peerConnectionsRef.current).forEach(userId => {
+        cleanupPeerConnection(userId);
+      });
+
+      // Leave room via API
+      await roomApi.leaveRoom(roomId);
+
+      navigate('/dashboard/explore');
+    } catch (err) {
+      console.error('Error leaving room:', err);
+      navigate('/dashboard');
+    }
+  }, [roomId, navigate, cleanupPeerConnection]);
+
+  // --- Enhanced renderRemoteVideo to always update srcObject and use remoteStreamsRef ---
+  const renderRemoteVideo = useCallback((participant) => {
+    const remoteStream = remoteStreamsRef.current[participant.user_id];
+
+    if (remoteStream && participant.video_enabled && isVideoMode) {
+      return (
+        <video
+          key={`remote-${participant.user_id}`}
+          autoPlay
+          playsInline
+          muted
+          className="w-full h-full object-cover"
+          ref={videoEl => {
+            if (videoEl && remoteStream) {
+              if (videoEl.srcObject !== remoteStream) {
+                videoEl.srcObject = remoteStream;
+              }
+            }
+          }}
+        />
+      );
+    }
+
+    return (
+      <div className="w-full h-full bg-gradient-to-br from-black/80 to-black/40 flex items-center justify-center">
+        <Avatar className="h-20 w-20 border-2 border-white/10">
+          <AvatarImage src={`https://i.pravatar.cc/150?u=${participant.user_id}`} />
+          <AvatarFallback>
+            {participant.username?.[0]?.toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+      </div>
+    );
+  }, [isVideoMode]);
+
   const formatTime = useCallback((dateString) => {
-    return new Date(dateString).toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit' 
+    return new Date(dateString).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
     });
   }, []);
+
+  // --- Enhanced logConnectionStates to use remoteStreamsRef ---
+  const logConnectionStates = useCallback(() => {
+    console.log('=== WebRTC Connection States ===');
+    console.log('Current user:', currentUser?.id);
+    console.log('All participants:', participants.map(p => p.user_id));
+
+    Object.entries(peerConnectionsRef.current).forEach(([userId, pc]) => {
+      console.log(`User ${userId}: ${pc.connectionState} (signaling: ${pc.signalingState}, ice: ${pc.iceConnectionState})`);
+    });
+
+    console.log('=== Remote Streams ===');
+    Object.keys(remoteStreamsRef.current).forEach(userId => {
+      const stream = remoteStreamsRef.current[userId];
+      console.log(`User ${userId}: ${stream ? `${stream.getTracks().length} tracks` : 'no stream'}`);
+    });
+  }, [currentUser, participants]);
 
   // Initialize on mount
   useEffect(() => {
     initializeRoom();
     initializeMedia();
     connectWebSocket();
-    
-    return () => {
-    // Cleanup on unmount
-    if (wsRef.current) {
-      wsRef.current.close();
-    }
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => track.stop());
-    }
-    Object.values(peerConnectionsRef.current).forEach(pc => pc.close());
-    
-    // Clean up remote video streams
-    Object.values(remoteVideosRef.current).forEach(stream => {
-      stream.getTracks().forEach(track => track.stop());
-    });
-    remoteVideosRef.current = {};
-  };
-}, [initializeRoom, initializeMedia, connectWebSocket]);
 
-  // Initiate WebRTC connections when participants join
+    return () => {
+      // Cleanup WebSocket
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+
+      // Cleanup local stream
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(track => track.stop());
+      }
+
+      // Cleanup all peer connections
+      Object.values(peerConnectionsRef.current).forEach(pc => {
+        if (pc && pc.connectionState !== 'closed') {
+          pc.close();
+        }
+      });
+      peerConnectionsRef.current = {};
+
+      // Cleanup remote streams
+      Object.values(remoteStreamsRef.current).forEach(stream => {
+        if (stream && stream.getTracks) {
+          stream.getTracks().forEach(track => track.stop());
+        }
+      });
+      remoteStreamsRef.current = {};
+
+      // Clear ICE candidate queues
+      iceCandidateQueueRef.current = {};
+    };
+  }, [initializeRoom, initializeMedia, connectWebSocket]);
+
+  // Fixed WebRTC connection establishment
   useEffect(() => {
-    if (currentUser && participants.length > 1 && mediaReady) {
-      participants.forEach(participant => {
-        if (participant.user_id !== currentUser.id && 
-            !peerConnectionsRef.current[participant.user_id]) {
-          initiateWebRTCConnection(participant.user_id);
+    if (currentUser && participants.length > 1 && mediaReady && isWebSocketOpen) {
+      console.log('=== Establishing WebRTC Connections ===');
+      console.log('Current user:', currentUser.id);
+      console.log('All participants:', participants.map(p => p.user_id));
+
+      // Add delay to ensure all participants are ready
+      const connectionTimer = setTimeout(() => {
+        participants.forEach(participant => {
+          if (participant.user_id !== currentUser.id) {
+            console.log(`Checking connection with user ${participant.user_id}`);
+
+            const existingConnection = peerConnectionsRef.current[participant.user_id];
+            let shouldConnect = false;
+
+            if (!existingConnection) {
+              shouldConnect = true;
+              console.log(`No existing connection to user ${participant.user_id}`);
+            } else {
+              const state = existingConnection.connectionState;
+              const signalingState = existingConnection.signalingState;
+
+              if (['closed', 'failed', 'disconnected'].includes(state)) {
+                shouldConnect = true;
+                console.log(`Connection to user ${participant.user_id} failed: ${state}`);
+                // Clean up the failed connection
+                existingConnection.close();
+                delete peerConnectionsRef.current[participant.user_id];
+                delete remoteStreamsRef.current[participant.user_id];
+                delete iceCandidateQueueRef.current[participant.user_id];
+              } else {
+                console.log(`Connection to user ${participant.user_id} exists: ${state}/${signalingState}`);
+              }
+            }
+
+            if (shouldConnect) {
+              // FIXED: Only user with higher ID initiates to prevent race conditions
+              if (currentUser.id > participant.user_id) {
+                console.log(`Initiating connection to user ${participant.user_id} (higher ID rule)`);
+                // Add random delay to prevent simultaneous offers
+                const delay = Math.random() * 1000 + 500;
+                setTimeout(() => {
+                  initiateWebRTCConnection(participant.user_id);
+                }, delay);
+              } else {
+                console.log(`User ${participant.user_id} should initiate connection (higher ID rule)`);
+              }
+            }
+          }
+        });
+      }, 1000); // Increased delay for better stability
+
+      return () => clearTimeout(connectionTimer);
+    }
+  }, [participants, currentUser, initiateWebRTCConnection, mediaReady, isWebSocketOpen]);
+
+  // Monitor connection states and attempt reconnection
+  useEffect(() => {
+    if (!mediaReady || !isWebSocketOpen) return;
+
+    const monitorConnections = setInterval(() => {
+      if (currentUser && participants.length > 1) {
+        participants.forEach(participant => {
+          if (participant.user_id !== currentUser.id) {
+            const connection = peerConnectionsRef.current[participant.user_id];
+
+            if (connection) {
+              const state = connection.connectionState;
+
+              // Reconnect if connection failed
+              if (state === 'failed' || state === 'disconnected') {
+                console.log(`Reconnecting to user ${participant.user_id} due to ${state} state`);
+                connection.close();
+                delete peerConnectionsRef.current[participant.user_id];
+                delete remoteStreamsRef.current[participant.user_id];
+                delete iceCandidateQueueRef.current[participant.user_id];
+
+                // Only reconnect if we have higher ID
+                if (currentUser.id > participant.user_id) {
+                  setTimeout(() => {
+                    initiateWebRTCConnection(participant.user_id);
+                  }, 2000);
+                }
+              }
+            }
+          }
+        });
+      }
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(monitorConnections);
+  }, [currentUser, participants, mediaReady, isWebSocketOpen, initiateWebRTCConnection]);
+
+  // Debug connection states periodically
+  useEffect(() => {
+    const debugTimer = setInterval(() => {
+      if (currentUser && participants.length > 1) {
+        logConnectionStates();
+      }
+    }, 15000); // Log every 15 seconds
+
+    return () => clearInterval(debugTimer);
+  }, [currentUser, participants, logConnectionStates]);
+
+  // Handle participant changes and cleanup
+  useEffect(() => {
+    // Clean up connections for participants who left
+    const currentParticipantIds = participants.map(p => p.user_id);
+    const connectedUserIds = Object.keys(peerConnectionsRef.current).map(id => parseInt(id));
+
+    connectedUserIds.forEach(userId => {
+      if (!currentParticipantIds.includes(userId)) {
+        console.log(`Cleaning up connection to user ${userId} who left`);
+
+        const connection = peerConnectionsRef.current[userId];
+        if (connection) {
+          connection.close();
+          delete peerConnectionsRef.current[userId];
+        }
+
+        const stream = remoteStreamsRef.current[userId];
+        if (stream && stream.getTracks) {
+          stream.getTracks().forEach(track => track.stop());
+          delete remoteStreamsRef.current[userId];
+        }
+
+        delete iceCandidateQueueRef.current[userId];
+      }
+    });
+  }, [participants]);
+
+  // Handle media track changes
+  useEffect(() => {
+    if (localStreamRef.current && mediaReady) {
+      // Update all peer connections with new media tracks
+      Object.values(peerConnectionsRef.current).forEach(pc => {
+        if (pc && pc.connectionState !== 'closed') {
+          const senders = pc.getSenders();
+
+          // Update audio track
+          const audioTrack = localStreamRef.current.getAudioTracks()[0];
+          const audioSender = senders.find(s => s.track && s.track.kind === 'audio');
+
+          if (audioSender && audioTrack) {
+            audioSender.replaceTrack(audioTrack).catch(console.error);
+          }
+
+          // Update video track
+          const videoTrack = localStreamRef.current.getVideoTracks()[0];
+          const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+
+          if (videoSender && videoTrack) {
+            videoSender.replaceTrack(videoTrack).catch(console.error);
+          }
         }
       });
     }
-  }, [participants, currentUser, initiateWebRTCConnection, mediaReady]);
+  }, [isMuted, videoEnabled, mediaReady]);
 
+  // Error boundary for WebRTC operations
+  const handleWebRTCError = useCallback((error, userId, operation) => {
+    console.error(`WebRTC ${operation} error for user ${userId}:`, error);
+
+    // Clean up failed connection
+    if (peerConnectionsRef.current[userId]) {
+      peerConnectionsRef.current[userId].close();
+      delete peerConnectionsRef.current[userId];
+    }
+
+    delete remoteStreamsRef.current[userId];
+    delete iceCandidateQueueRef.current[userId];
+
+    // Show user-friendly error message
+    toast({
+      title: "Connection Error",
+      description: `Failed to connect to user. Retrying...`,
+      variant: "destructive"
+    });
+
+    // Attempt reconnection after delay if we have higher ID
+    if (currentUser && currentUser.id > userId) {
+      setTimeout(() => {
+        connectionStates.current[userId] = 'new';
+        initiateWebRTCConnection(userId);
+      }, 3000);
+    }
+  }, [currentUser, initiateWebRTCConnection]);
+
+  // Loading and error states
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-gradient-to-b from-background to-background/90">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-neon-purple"></div>
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-black via-gray-900 to-black">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-300">Loading room...</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex flex-col justify-center items-center h-screen bg-gradient-to-b from-background to-background/90">
-        <p className="text-red-400 mb-4">{error}</p>
-        <Button onClick={() => navigate('/dashboard/explore')}>
-          Back to Rooms
-        </Button>
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-black via-gray-900 to-black">
+        <div className="text-center">
+          <p className="text-red-400 mb-4">{error}</p>
+          <Button onClick={() => navigate('/dashboard/explore')} variant="outline">
+            Return to Dashboard
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-gradient-to-b from-background to-background/90 overflow-hidden">
-      {/* Top Bar */}
-      <div className="h-16 flex items-center justify-between px-4 border-b border-white/10 glass-morphism z-10">
-        <div className="flex items-center">
-          <h1 className="font-bold text-white text-xl">{room?.title || 'Loading...'}</h1>
+    <div className="h-screen w-screen flex flex-col bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 overflow-hidden relative">
+      {/* Animated Background */}
+      <div className="absolute inset-0 opacity-30">
+        <div className="absolute top-0 -left-4 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl animate-blob"></div>
+        <div className="absolute top-0 -right-4 w-72 h-72 bg-yellow-300 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-2000"></div>
+        <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-4000"></div>
+      </div>
 
-          <div className="flex ml-4">
-            {participants.slice(0, 3).map((participant, index) => (
-              <div 
-                key={participant.user_id} 
-                className="flex items-center" 
-                style={{ marginLeft: index > 0 ? '-8px' : '0' }}
+      {/* Top Header Bar */}
+      <motion.div
+        className="h-16 flex items-center justify-between px-6 backdrop-blur-xl bg-black/20 border-b border-white/10 z-20 relative"
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3">
+            <div className="h-3 w-3 bg-red-500 rounded-full animate-pulse"></div>
+            <h1 className="font-bold text-white text-xl bg-gradient-to-r from-white to-purple-200 bg-clip-text text-transparent">
+              {room?.title || 'Loading...'}
+            </h1>
+          </div>
+
+          {/* Participants Avatars */}
+          <div className="flex items-center">
+            {participants.slice(0, 4).map((participant, index) => (
+              <motion.div
+                key={participant.user_id}
+                className="relative"
+                style={{ marginLeft: index > 0 ? '-12px' : '0', zIndex: 4 - index }}
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: index * 0.1 }}
               >
-                <Avatar className="h-8 w-8 border-2 border-background">
+                <Avatar className="h-10 w-10 border-3 border-white/20 hover:border-purple-400 transition-all duration-300 hover:scale-110">
                   <AvatarImage src={`https://i.pravatar.cc/150?u=${participant.user_id}`} />
-                  <AvatarFallback>{participant.username?.[0]?.toUpperCase()}</AvatarFallback>
+                  <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-500 text-white font-semibold">
+                    {participant.username?.[0]?.toUpperCase()}
+                  </AvatarFallback>
                 </Avatar>
-              </div>
+                {participant.is_muted && (
+                  <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-red-500 rounded-full flex items-center justify-center">
+                    <MicOff className="h-2 w-2 text-white" />
+                  </div>
+                )}
+              </motion.div>
             ))}
 
-            {participants.length > 3 && (
-              <div className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center text-xs text-white font-medium ml-1">
-                +{participants.length - 3}
-              </div>
+            {participants.length > 4 && (
+              <motion.div
+                className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-sm text-white font-bold border-3 border-white/20 ml-2"
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.4 }}
+              >
+                +{participants.length - 4}
+              </motion.div>
             )}
+
+            <div className="ml-4 px-3 py-1 bg-white/10 rounded-full backdrop-blur-sm">
+              <span className="text-white text-sm font-medium flex items-center">
+                <Users className="h-4 w-4 mr-1" />
+                {participants.length}
+              </span>
+            </div>
           </div>
         </div>
 
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={handleLeaveRoom}
-          className="bg-red-500/20 text-red-400 hover:bg-red-500/30 hover:text-white hover:glow-red"
-        >
-          <LogOut className="h-4 w-4 mr-2" />
-          Leave Room
-        </Button>
-      </div>
+        <div className="flex items-center space-x-3">
+          {room?.is_recording && (
+            <motion.div
+              className="flex items-center px-3 py-1 bg-red-500/20 border border-red-500/50 rounded-full backdrop-blur-sm"
+              animate={{ scale: [1, 1.05, 1] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
+              <div className="h-2 w-2 bg-red-400 rounded-full mr-2 animate-pulse"></div>
+              <span className="text-red-400 text-sm font-medium">REC</span>
+            </motion.div>
+          )}
 
-      {/* Main Content */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLeaveRoom}
+            className="bg-red-500/20 text-red-400 hover:bg-red-500/40 hover:text-white border border-red-500/30 hover:border-red-500/60 transition-all duration-300 hover:scale-105"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Leave
+          </Button>
+        </div>
+      </motion.div>
+
+      {/* Main Content Area */}
       <div className="flex-1 flex relative overflow-hidden">
-        {/* Participants Grid */}
-        <div className="flex-1 p-4 overflow-y-auto">
+        {/* Participants Grid/Audio View */}
+        <div className="flex-1 p-6 overflow-y-auto relative z-10">
           {isVideoMode ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 h-full">
-              {participants.map(participant => (
-                <div 
-                    key={participant.user_id} 
-                    className={cn(
-                    "relative rounded-xl overflow-hidden transition-all duration-300",
-                    "ring-2 ring-transparent"
-                    )}
+            /* Video Grid Layout */
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 h-full">
+              {participants.map((participant, index) => (
+                <motion.div
+                  key={participant.user_id}
+                  className="relative rounded-2xl overflow-hidden group hover:scale-[1.02] transition-all duration-300"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: index * 0.1 }}
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(139, 69, 19, 0.3) 0%, rgba(0, 0, 0, 0.8) 100%)'
+                  }}
                 >
+                  {/* Video Content */}
+                  <div className="aspect-video bg-gradient-to-br from-purple-900/50 to-black/80 relative overflow-hidden">
                     {participant.user_id === currentUser?.id ? (
-                    <div className="bg-black h-full w-full">
-                        <video 
+                      <video
                         ref={localVideoRef}
-                        autoPlay 
-                        muted 
+                        autoPlay
+                        muted
                         playsInline
                         className="w-full h-full object-cover"
-                        />
-                    </div>
+                      />
                     ) : (
-                    renderRemoteVideo(participant)
+                      renderRemoteVideo(participant)
                     )}
 
-                    <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 to-transparent">
-                    <div className="flex items-center justify-between">
-                        <span className="text-white font-medium">
-                        {participant.user_id === currentUser?.id ? 'You' : participant.username}
-                        </span>
+                    {/* Video Overlay Effects */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+
+                    {/* Participant Info Overlay */}
+                    <div className="absolute bottom-0 left-0 right-0 p-4">
+                      <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
-                        {participant.is_muted && (
-                            <MicOff className="h-4 w-4 text-red-400" />
-                        )}
-                        {participant.hand_raised && (
-                            <HandMetal className="h-4 w-4 text-yellow-400" />
-                        )}
+                          <div className="px-2 py-1 bg-black/60 rounded-lg backdrop-blur-sm">
+                            <span className="text-white font-semibold text-sm">
+                              {participant.user_id === currentUser?.id ? 'You' : participant.username}
+                            </span>
+                          </div>
+                          {participant.role === 'host' && (
+                            <div className="px-2 py-1 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg">
+                              <span className="text-white text-xs font-bold">HOST</span>
+                            </div>
+                          )}
                         </div>
+
+                        <div className="flex items-center space-x-1">
+                          {participant.is_muted && (
+                            <div className="p-1 bg-red-500/80 rounded-full">
+                              <MicOff className="h-3 w-3 text-white" />
+                            </div>
+                          )}
+                          {participant.hand_raised && (
+                            <motion.div
+                              className="p-1 bg-yellow-500/80 rounded-full"
+                              animate={{ rotate: [0, -10, 10, -10, 0] }}
+                              transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
+                            >
+                              <HandMetal className="h-3 w-3 text-white" />
+                            </motion.div>
+                          )}
+                          {!participant.video_enabled && (
+                            <div className="p-1 bg-gray-500/80 rounded-full">
+                              <VideoOff className="h-3 w-3 text-white" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    </div>
-                </div>
-                ))}
+                  </div>
+                </motion.div>
+              ))}
             </div>
           ) : (
-            <div className="flex flex-wrap justify-center items-center h-full gap-8">
-              {participants.map((participant) => (
-                <motion.div 
-                  key={participant.user_id}
-                  className="flex flex-col items-center"
+            /* Audio-Only Circular Layout */
+            <div className="flex items-center justify-center h-full">
+              <div className="relative">
+                {/* Center Circle for Current User */}
+                <motion.div
+                  className="relative z-10"
+                  initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                  transition={{ type: "spring", stiffness: 200 }}
                 >
                   <div className="relative">
-                    <Avatar className="h-28 w-28 sm:h-32 sm:w-32 border-4 border-white/10">
-                      <AvatarImage src={`https://i.pravatar.cc/150?u=${participant.user_id}`} />
-                      <AvatarFallback className="text-4xl">
-                        {participant.username?.[0]?.toUpperCase()}
+                    <Avatar className="h-32 w-32 border-4 border-purple-500/50 shadow-2xl shadow-purple-500/25">
+                      <AvatarImage src={`https://i.pravatar.cc/150?u=${currentUser?.id}`} />
+                      <AvatarFallback className="text-4xl bg-gradient-to-br from-purple-600 to-pink-600 text-white">
+                        {currentUser?.username?.[0]?.toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
 
-                    <div className="absolute -bottom-1 -right-1 flex space-x-1">
-                      <div className={cn(
-                        "h-6 w-6 rounded-full flex items-center justify-center",
-                        participant.is_muted 
-                          ? "bg-red-500 text-white" 
-                          : "bg-green-500 text-white"
-                      )}>
-                        {participant.is_muted ? (
-                          <MicOff className="h-3 w-3" />
-                        ) : (
-                          <Mic className="h-3 w-3" />
-                        )}
-                      </div>
+                    {/* Audio Visualizer Ring */}
+                    <motion.div
+                      className="absolute inset-0 rounded-full border-2 border-purple-400"
+                      animate={{
+                        scale: isMuted ? 1 : [1, 1.1, 1],
+                        opacity: isMuted ? 0.3 : [0.3, 0.8, 0.3]
+                      }}
+                      transition={{ duration: 1, repeat: Infinity }}
+                    />
 
-                      {participant.hand_raised && (
-                        <div className="h-6 w-6 rounded-full bg-yellow-500 text-white flex items-center justify-center">
-                          <HandMetal className="h-3 w-3" />
-                        </div>
+                    {/* Status Indicators */}
+                    <div className="absolute -bottom-2 -right-2 flex space-x-1">
+                      <div className={`h-8 w-8 rounded-full flex items-center justify-center shadow-lg ${isMuted
+                        ? "bg-red-500 text-white"
+                        : "bg-green-500 text-white"
+                        }`}>
+                        {isMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                      </div>
+                      {isHandRaised && (
+                        <motion.div
+                          className="h-8 w-8 rounded-full bg-yellow-500 text-white flex items-center justify-center shadow-lg"
+                          animate={{ rotate: [0, -15, 15, -15, 0] }}
+                          transition={{ duration: 0.6, repeat: Infinity, repeatDelay: 1.5 }}
+                        >
+                          <HandMetal className="h-4 w-4" />
+                        </motion.div>
                       )}
                     </div>
                   </div>
 
-                  <p className="mt-3 font-medium text-white">
-                    {participant.user_id === currentUser?.id ? 'You' : participant.username}
-                    {participant.role === 'host' && (
-                      <span className="ml-1 text-xs bg-gradient-to-r from-neon-purple to-neon-blue text-transparent bg-clip-text">
-                        HOST
-                      </span>
-                    )}
-                  </p>
+                  <p className="mt-4 text-center font-bold text-white text-lg">You</p>
                 </motion.div>
-              ))}
+
+                {/* Other Participants in Orbit */}
+                {participants.filter(p => p.user_id !== currentUser?.id).map((participant, index) => {
+                  const angle = (index / Math.max(participants.length - 1, 1)) * 2 * Math.PI;
+                  const radius = 200;
+                  const x = Math.cos(angle) * radius;
+                  const y = Math.sin(angle) * radius;
+
+                  return (
+                    <motion.div
+                      key={participant.user_id}
+                      className="absolute top-1/2 left-1/2"
+                      style={{
+                        transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`
+                      }}
+                      initial={{ opacity: 0, scale: 0 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: index * 0.2, type: "spring" }}
+                    >
+                      <div className="relative group">
+                        <Avatar className="h-20 w-20 border-3 border-white/20 group-hover:border-purple-400 transition-all duration-300 shadow-xl">
+                          <AvatarImage src={`https://i.pravatar.cc/150?u=${participant.user_id}`} />
+                          <AvatarFallback className="text-2xl bg-gradient-to-br from-blue-600 to-purple-600 text-white">
+                            {participant.username?.[0]?.toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+
+                        {/* Speaking Animation */}
+                        {!participant.is_muted && (
+                          <motion.div
+                            className="absolute inset-0 rounded-full border-2 border-green-400"
+                            animate={{
+                              scale: [1, 1.2, 1],
+                              opacity: [0.3, 0.8, 0.3]
+                            }}
+                            transition={{ duration: 1.5, repeat: Infinity }}
+                          />
+                        )}
+
+                        {/* Status Badges */}
+                        <div className="absolute -bottom-1 -right-1 flex flex-col space-y-1">
+                          <div className={`h-6 w-6 rounded-full flex items-center justify-center text-white text-xs shadow-lg ${participant.is_muted ? "bg-red-500" : "bg-green-500"
+                            }`}>
+                            {participant.is_muted ? <MicOff className="h-3 w-3" /> : <Mic className="h-3 w-3" />}
+                          </div>
+                          {participant.hand_raised && (
+                            <motion.div
+                              className="h-6 w-6 rounded-full bg-yellow-500 text-white flex items-center justify-center shadow-lg"
+                              animate={{ rotate: [0, -10, 10, -10, 0] }}
+                              transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
+                            >
+                              <HandMetal className="h-3 w-3" />
+                            </motion.div>
+                          )}
+                        </div>
+
+                        {/* Name Label */}
+                        <div className="absolute top-full mt-2 left-1/2 transform -translate-x-1/2 whitespace-nowrap">
+                          <div className="px-2 py-1 bg-black/60 rounded-lg backdrop-blur-sm">
+                            <p className="text-white text-sm font-medium">
+                              {participant.username}
+                              {participant.role === 'host' && (
+                                <span className="ml-1 text-xs text-yellow-400">HOST</span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
 
-        {/* Chat Panel */}
+        {/* Enhanced Chat Panel */}
         <AnimatePresence>
           {isChatOpen && (
-            <motion.div 
-              className="w-full sm:w-80 md:w-96 h-full flex flex-col border-l border-white/10 glass-morphism"
-              initial={{ x: 300, opacity: 0 }}
+            <motion.div
+              className="w-full sm:w-80 md:w-96 h-full flex flex-col backdrop-blur-xl bg-black/40 border-l border-white/10 relative z-20"
+              initial={{ x: 400, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
-              exit={{ x: 300, opacity: 0 }}
-              transition={{ type: "spring", damping: 20 }}
+              exit={{ x: 400, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
             >
-              <div className="p-3 border-b border-white/10 flex items-center justify-between">
-                <h3 className="font-medium">Chat</h3>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => setIsChatOpen(false)}
-                  className="h-7 w-7"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {chatMessages.map((message) => (
-                  <div 
-                    key={message.id} 
-                    className={cn(
-                      "flex items-start",
-                      message.user === currentUser?.id ? "justify-end" : ""
-                    )}
-                  >
-                    {message.user !== currentUser?.id && (
-                      <Avatar className="h-8 w-8 mr-2 mt-1">
-                        <AvatarImage src={`https://i.pravatar.cc/150?u=${message.user}`} />
-                        <AvatarFallback>{message.username?.[0]?.toUpperCase()}</AvatarFallback>
-                      </Avatar>
-                    )}
-
-                    <div className={cn(
-                      "max-w-[70%] rounded-xl p-3",
-                      message.user === currentUser?.id 
-                        ? "bg-neon-purple text-white" 
-                        : "bg-white/10 text-white"
-                    )}>
-                      {message.user !== currentUser?.id && (
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="font-medium text-sm">{message.username}</span>
-                          <span className="text-xs opacity-70">{formatTime(message.sent_at)}</span>
-                        </div>
-                      )}
-                      <p>{message.content}</p>
-                      {message.user === currentUser?.id && (
-                        <div className="text-xs opacity-70 text-right mt-1">
-                          {formatTime(message.sent_at)}
-                        </div>
-                      )}
+              {/* Chat Header */}
+              <div className="p-4 border-b border-white/10 bg-black/20">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <MessageCircle className="h-5 w-5 text-purple-400" />
+                    <h3 className="font-semibold text-white">Live Chat</h3>
+                    <div className="px-2 py-1 bg-purple-500/20 rounded-full">
+                      <span className="text-purple-300 text-xs">{chatMessages.length}</span>
                     </div>
-
-                    {message.user === currentUser?.id && (
-                      <Avatar className="h-8 w-8 ml-2 mt-1">
-                        <AvatarImage src={`https://i.pravatar.cc/150?u=${message.user}`} />
-                        <AvatarFallback>{currentUser.username?.[0]?.toUpperCase()}</AvatarFallback>
-                      </Avatar>
-                    )}
                   </div>
-                ))}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setIsChatOpen(false)}
+                    className="h-8 w-8 text-white hover:bg-white/10"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
-              <form onSubmit={handleSendMessage} className="p-3 border-t border-white/10">
-                <div className="flex items-center">
-                  <Input 
-                    type="text" 
-                    placeholder="Type a message..." 
-                    className="flex-1 bg-white/5 border-white/10"
+              {/* Messages Area */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin scrollbar-thumb-purple-500/50">
+                <AnimatePresence>
+                  {chatMessages.map((message, index) => (
+                    <motion.div
+                      key={message.id || index}
+                      className={`flex ${message.user === currentUser?.id ? "justify-end" : "justify-start"}`}
+                      initial={{ opacity: 0, y: 20, scale: 0.8 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ delay: index * 0.05 }}
+                    >
+                      {message.user !== currentUser?.id && (
+                        <Avatar className="h-8 w-8 mr-2 mt-1 flex-shrink-0">
+                          <AvatarImage src={`https://i.pravatar.cc/150?u=${message.user}`} />
+                          <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-500">
+                            {message.username?.[0]?.toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                      )}
+
+                      <div className={`max-w-[75%] ${message.user === currentUser?.id
+                        ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white"
+                        : "bg-white/10 text-white border border-white/10"
+                        } rounded-2xl p-3 backdrop-blur-sm shadow-lg`}>
+                        {message.user !== currentUser?.id && (
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="font-semibold text-sm text-purple-300">{message.username}</span>
+                            <span className="text-xs opacity-60">{formatTime(message.sent_at)}</span>
+                          </div>
+                        )}
+                        <p className="text-sm leading-relaxed">{message.content}</p>
+                        {message.user === currentUser?.id && (
+                          <div className="text-xs opacity-70 text-right mt-1">
+                            {formatTime(message.sent_at)}
+                          </div>
+                        )}
+                      </div>
+
+                      {message.user === currentUser?.id && (
+                        <Avatar className="h-8 w-8 ml-2 mt-1 flex-shrink-0">
+                          <AvatarImage src={`https://i.pravatar.cc/150?u=${message.user}`} />
+                          <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-500">
+                            {currentUser.username?.[0]?.toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                      )}
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+
+              {/* Message Input */}
+              <form onSubmit={handleSendMessage} className="p-4 border-t border-white/10 bg-black/20">
+                <div className="flex items-center space-x-2">
+                  <Input
+                    type="text"
+                    placeholder="Type your message..."
+                    className="flex-1 bg-white/5 border-white/20 text-white placeholder:text-white/50 rounded-xl focus:border-purple-400 focus:ring-1 focus:ring-purple-400"
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
                   />
-                  <Button 
-                    type="submit" 
-                    size="icon" 
+                  <Button
+                    type="submit"
+                    size="icon"
                     disabled={!messageInput.trim()}
-                    className="ml-2 bg-neon-purple text-white hover:glow-purple"
+                    className="bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 rounded-xl h-10 w-10 shadow-lg hover:shadow-purple-500/25 transition-all duration-300"
                   >
                     <Send className="h-4 w-4" />
                   </Button>
@@ -835,239 +1570,355 @@ const LiveRoom = () => {
         </AnimatePresence>
       </div>
 
-      {/* Bottom Control Bar */}
-      <div className="h-16 px-4 border-t border-white/10 glass-morphism flex justify-between items-center">
-        <div className="flex items-center space-x-2">
+      {/* Enhanced Bottom Control Bar */}
+      <motion.div
+        className="h-20 px-6 backdrop-blur-xl bg-black/30 border-t border-white/10 flex justify-between items-center relative z-20"
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+      >
+        {/* Left Controls */}
+        <div className="flex items-center space-x-3">
+          {/* Video Mode Toggle */}
           <Button
             variant="outline"
             size="sm"
             onClick={toggleVideoMode}
-            className={cn(
-              "mr-2 border-white/10 hover:border-neon-blue hover:bg-white/10",
-              isVideoMode
-                ? "bg-neon-blue/20 text-neon-blue border-neon-blue/30"
-                : "bg-white/5"
-            )}
+            className={`px-4 py-2 rounded-xl border-2 transition-all duration-300 hover:scale-105 ${isVideoMode
+              ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white border-blue-500/50 shadow-lg shadow-blue-500/25"
+              : "bg-white/5 text-white border-white/20 hover:border-purple-400 hover:bg-white/10"
+              }`}
           >
             {isVideoMode ? <VideoOff className="h-4 w-4 mr-2" /> : <Video className="h-4 w-4 mr-2" />}
-            {isVideoMode ? 'Switch to Audio' : 'Start Video Call'}
+            {isVideoMode ? 'Audio Only' : 'Start Video'}
           </Button>
-          <Button
-            variant="outline"
-            size="icon"
+        </div>
+
+        {/* Center Controls */}
+        <div className="flex items-center space-x-4">
+          {/* Mute Toggle */}
+          <motion.button
             onClick={handleMuteToggle}
-            className={cn(
-              "rounded-full h-10 w-10",
-              isMuted
-                ? "bg-red-500/20 text-white border-red-500/50 hover:bg-red-500/30"
-                : "bg-white/5 text-white border-white/10 hover:border-neon-purple"
-            )}
+            className={`relative h-14 w-14 rounded-full flex items-center justify-center transition-all duration-300 shadow-2xl ${isMuted
+              ? "bg-gradient-to-r from-red-600 to-red-500 shadow-red-500/50"
+              : "bg-gradient-to-r from-green-600 to-green-500 shadow-green-500/50"
+              }`}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
           >
-            {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-          </Button>
-          <Button 
-            variant="outline" 
-            size="icon"
+            {isMuted ? <MicOff className="h-6 w-6 text-white" /> : <Mic className="h-6 w-6 text-white" />}
+            <motion.div
+              className="absolute inset-0 rounded-full border-2 border-white/30"
+              animate={{
+                scale: isMuted ? 1 : [1, 1.2, 1],
+                opacity: isMuted ? 0.3 : [0.3, 0.8, 0.3]
+              }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+            />
+          </motion.button>
+
+          {/* Video Toggle */}
+          <motion.button
             onClick={handleVideoToggle}
             disabled={!isVideoMode}
-            className={cn(
-              "rounded-full h-10 w-10",
-              videoEnabled && isVideoMode
-                ? "bg-neon-blue/20 text-neon-blue border-neon-blue/50 hover:bg-neon-blue/30" 
-                : "bg-white/5 text-white border-white/10 hover:border-neon-purple",
-              !isVideoMode && "opacity-50 cursor-not-allowed"
-            )}
+            className={`relative h-12 w-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg ${videoEnabled && isVideoMode
+              ? "bg-gradient-to-r from-blue-600 to-purple-600 shadow-blue-500/50"
+              : "bg-white/10 text-white/70 shadow-white/10"
+              } ${!isVideoMode ? "opacity-50 cursor-not-allowed" : "hover:scale-110"}`}
+            whileHover={isVideoMode ? { scale: 1.1 } : {}}
+            whileTap={isVideoMode ? { scale: 0.95 } : {}}
           >
-            {videoEnabled ? (
-              <Video className="h-5 w-5" />
-            ) : (
-              <VideoOff className="h-5 w-5" />
-            )}
-          </Button>
+            {videoEnabled ? <Video className="h-5 w-5 text-white" /> : <VideoOff className="h-5 w-5" />}
+          </motion.button>
 
-          <Button 
-            variant="outline" 
-            size="icon"
+          {/* Raise Hand */}
+          <motion.button
             onClick={handleRaiseHand}
-            className={cn(
-              "rounded-full h-10 w-10",
-              isHandRaised 
-                ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/50 hover:bg-yellow-500/30" 
-                : "bg-white/5 text-white border-white/10 hover:border-yellow-400"
-            )}
+            className={`relative h-12 w-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg ${isHandRaised
+              ? "bg-gradient-to-r from-yellow-500 to-orange-500 shadow-yellow-500/50"
+              : "bg-white/10 text-white hover:bg-white/20 shadow-white/10"
+              }`}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
+            animate={isHandRaised ? { rotate: [0, -10, 10, -10, 0] } : {}}
+            transition={isHandRaised ? { duration: 0.5, repeat: Infinity, repeatDelay: 2 } : {}}
           >
             <HandMetal className="h-5 w-5" />
-          </Button>
+          </motion.button>
 
-          <Button 
-            variant="outline" 
-            size="icon"
-            onClick={() => setIsChatOpen(!isChatOpen)}
-            className={cn(
-              "rounded-full h-10 w-10 relative",
-              isChatOpen 
-                ? "bg-neon-purple/20 text-neon-purple border-neon-purple/50" 
-                : "bg-white/5 text-white border-white/10 hover:border-neon-purple"
-            )}
+          {/* Chat Toggle */}
+          <motion.button
+            onClick={handleChatToggle}
+            className={`relative h-12 w-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg ${isChatOpen
+              ? "bg-gradient-to-r from-purple-600 to-pink-600 shadow-purple-500/50"
+              : "bg-white/10 text-white hover:bg-white/20 shadow-white/10"
+              }`}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
           >
             <MessageCircle className="h-5 w-5" />
-            {chatMessages.length > 0 && !isChatOpen && (
-              <div className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full flex items-center justify-center">
-                <span className="text-xs text-white font-medium">
-                  {chatMessages.length > 9 ? '9+' : chatMessages.length}
+            {unreadCount > 0 && !isChatOpen && (
+              <motion.div
+                className="absolute -top-1 -right-1 h-5 w-5 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg"
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 400 }}
+              >
+                <span className="text-xs text-white font-bold">
+                  {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
-              </div>
+              </motion.div>
             )}
+          </motion.button>
+        </div>
+
+        {/* Right Info */}
+        <div className="flex items-center space-x-4">
+          {/* Connection Status */}
+          <div className="flex items-center space-x-2 px-3 py-2 bg-white/10 rounded-xl backdrop-blur-sm">
+            <motion.div
+              className="h-2 w-2 bg-green-400 rounded-full"
+              animate={{ scale: [1, 1.2, 1], opacity: [0.7, 1, 0.7] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            />
+            <span className="text-white text-sm font-medium">
+              {participants.length} online
+            </span>
+          </div>
+
+          {/* Leave Room */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLeaveRoom}
+            className="bg-red-500/20 text-red-400 hover:bg-red-500/40 hover:text-white border border-red-500/30 hover:border-red-500/60 transition-all duration-300 hover:scale-105 rounded-xl px-4 py-2"
+          >
+            <PhoneOff className="h-4 w-4 mr-2" />
+            End Call
           </Button>
         </div>
-
-        {/* Room Info */}
-        <div className="hidden sm:flex items-center space-x-4 text-sm text-white/70">
-          <div className="flex items-center">
-            <div className="h-2 w-2 bg-green-400 rounded-full mr-2"></div>
-            {participants.length} participant{participants.length !== 1 ? 's' : ''}
-          </div>
-          
-          {room?.is_recording && (
-            <div className="flex items-center text-red-400">
-              <div className="h-2 w-2 bg-red-400 rounded-full mr-2 animate-pulse"></div>
-              Recording
-            </div>
-          )}
-        </div>
-      </div>
+      </motion.div>
 
       {/* Mobile Chat Overlay */}
-      {isChatOpen && (
-        <div className="sm:hidden fixed inset-0 bg-black/50 z-50 flex">
-          <motion.div 
-            className="w-full h-full flex flex-col bg-background/95 backdrop-blur-xl"
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 20 }}
-          >
-            <div className="p-4 border-b border-white/10 flex items-center justify-between">
-              <h3 className="font-medium text-white text-lg">Chat</h3>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => setIsChatOpen(false)}
-                className="text-white"
-              >
-                <X className="h-5 w-5" />
-              </Button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {chatMessages.map((message) => (
-                <div 
-                  key={message.id} 
-                  className={cn(
-                    "flex items-start",
-                    message.user === currentUser?.id ? "justify-end" : ""
-                  )}
-                >
-                  {message.user !== currentUser?.id && (
-                    <Avatar className="h-8 w-8 mr-2 mt-1">
-                      <AvatarImage src={`https://i.pravatar.cc/150?u=${message.user}`} />
-                      <AvatarFallback>{message.username?.[0]?.toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                  )}
-
-                  <div className={cn(
-                    "max-w-[70%] rounded-xl p-3",
-                    message.user === currentUser?.id 
-                      ? "bg-neon-purple text-white" 
-                      : "bg-white/10 text-white"
-                  )}>
-                    {message.user !== currentUser?.id && (
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="font-medium text-sm">{message.username}</span>
-                        <span className="text-xs opacity-70">{formatTime(message.sent_at)}</span>
-                      </div>
-                    )}
-                    <p>{message.content}</p>
-                    {message.user === currentUser?.id && (
-                      <div className="text-xs opacity-70 text-right mt-1">
-                        {formatTime(message.sent_at)}
-                      </div>
-                    )}
-                  </div>
-
-                  {message.user === currentUser?.id && (
-                    <Avatar className="h-8 w-8 ml-2 mt-1">
-                      <AvatarImage src={`https://i.pravatar.cc/150?u=${message.user}`} />
-                      <AvatarFallback>{currentUser.username?.[0]?.toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                  )}
+      <AnimatePresence>
+        {isChatOpen && (
+          <div className="sm:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex">
+            <motion.div
+              className="w-full h-full flex flex-col bg-gradient-to-br from-slate-900 to-purple-900 backdrop-blur-xl"
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            >
+              <div className="p-4 border-b border-white/10 flex items-center justify-between bg-black/20">
+                <div className="flex items-center space-x-2">
+                  <MessageCircle className="h-5 w-5 text-purple-400" />
+                  <h3 className="font-semibold text-white text-lg">Chat</h3>
                 </div>
-              ))}
-            </div>
-
-            <form onSubmit={handleSendMessage} className="p-4 border-t border-white/10">
-              <div className="flex items-center">
-                <Input 
-                  type="text" 
-                  placeholder="Type a message..." 
-                  className="flex-1 bg-white/5 border-white/10 text-white"
-                  value={messageInput}
-                  onChange={(e) => setMessageInput(e.target.value)}
-                />
-                <Button 
-                  type="submit" 
-                  size="icon" 
-                  disabled={!messageInput.trim()}
-                  className="ml-2 bg-neon-purple text-white hover:glow-purple"
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsChatOpen(false)}
+                  className="text-white hover:bg-white/10 rounded-xl"
                 >
-                  <Send className="h-4 w-4" />
+                  <X className="h-5 w-5" />
                 </Button>
               </div>
-            </form>
-          </motion.div>
-        </div>
-      )}
+
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {chatMessages.map((message, index) => (
+                  <motion.div
+                    key={message.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    className={cn(
+                      "flex items-start",
+                      message.user === currentUser?.id ? "justify-end" : ""
+                    )}
+                  >
+                    {message.user !== currentUser?.id && (
+                      <Avatar className="h-8 w-8 mr-3 mt-1 ring-2 ring-purple-400/20">
+                        <AvatarImage src={`https://i.pravatar.cc/150?u=${message.user}`} />
+                        <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-500 text-white text-xs">
+                          {message.username?.[0]?.toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
+
+                    <div className={cn(
+                      "max-w-[75%] rounded-2xl p-3 shadow-lg",
+                      message.user === currentUser?.id
+                        ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white"
+                        : "bg-white/10 backdrop-blur-sm text-white border border-white/5"
+                    )}>
+                      {message.user !== currentUser?.id && (
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="font-medium text-sm text-purple-300">
+                            {message.username}
+                          </span>
+                          <span className="text-xs opacity-70 text-gray-300">
+                            {formatTime(message.sent_at)}
+                          </span>
+                        </div>
+                      )}
+                      <p className="text-sm leading-relaxed">{message.content}</p>
+                      {message.user === currentUser?.id && (
+                        <div className="text-xs opacity-80 text-right mt-2">
+                          {formatTime(message.sent_at)}
+                        </div>
+                      )}
+                    </div>
+
+                    {message.user === currentUser?.id && (
+                      <Avatar className="h-8 w-8 ml-3 mt-1 ring-2 ring-purple-400/20">
+                        <AvatarImage src={`https://i.pravatar.cc/150?u=${message.user}`} />
+                        <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-500 text-white text-xs">
+                          {currentUser.username?.[0]?.toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
+                  </motion.div>
+                ))}
+
+                {chatMessages.length === 0 && (
+                  <div className="flex flex-col items-center justify-center h-full text-center">
+                    <MessageCircle className="h-12 w-12 text-purple-400/50 mb-4" />
+                    <p className="text-white/70 text-lg font-medium mb-2">No messages yet</p>
+                    <p className="text-white/50 text-sm">Be the first to say something!</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4 border-t border-white/10 bg-black/20">
+                <form onSubmit={handleSendMessage} className="flex items-center space-x-3">
+                  <div className="flex-1 relative">
+                    <Input
+                      type="text"
+                      placeholder="Type your message..."
+                      className="w-full bg-white/5 border-white/10 text-white placeholder:text-white/50 rounded-xl pr-12 py-3 focus:ring-2 focus:ring-purple-500/50 focus:border-transparent"
+                      value={messageInput}
+                      onChange={(e) => setMessageInput(e.target.value)}
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    size="icon"
+                    disabled={!messageInput.trim()}
+                    className="bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 disabled:from-gray-600 disabled:to-gray-700 rounded-xl h-12 w-12 shadow-lg transition-all duration-200 transform hover:scale-105"
+                  >
+                    <Send className="h-5 w-5" />
+                  </Button>
+                </form>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Connection Status Indicator */}
-      {wsRef.current?.readyState !== WebSocket.OPEN && (
-        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50">
-          <motion.div 
-            className="bg-red-500/20 border border-red-500/50 text-red-400 px-4 py-2 rounded-lg backdrop-blur-sm"
+      <AnimatePresence>
+        {wsRef.current?.readyState !== WebSocket.OPEN && (
+          <motion.div
+            className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
           >
-            <div className="flex items-center">
-              <div className="h-2 w-2 bg-red-400 rounded-full mr-2 animate-pulse"></div>
-              Reconnecting...
+            <div className="bg-red-500/20 border border-red-500/50 text-red-400 px-4 py-2 rounded-lg backdrop-blur-sm shadow-lg">
+              <div className="flex items-center">
+                <div className="h-2 w-2 bg-red-400 rounded-full mr-2 animate-pulse"></div>
+                <span className="text-sm font-medium">Reconnecting...</span>
+              </div>
             </div>
           </motion.div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
-      {/* Screen Share Indicator (if implemented) */}
-      {room?.screen_sharing_active && (
-        <div className="fixed top-20 right-4 z-50">
-          <motion.div 
-            className="bg-green-500/20 border border-green-500/50 text-green-400 px-3 py-2 rounded-lg backdrop-blur-sm"
+      {/* Screen Share Indicator */}
+      <AnimatePresence>
+        {room?.screen_sharing_active && (
+          <motion.div
+            className="fixed top-20 right-4 z-50"
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
           >
-            <div className="flex items-center">
-              <div className="h-2 w-2 bg-green-400 rounded-full mr-2"></div>
-              Screen sharing active
+            <div className="bg-green-500/20 border border-green-500/50 text-green-400 px-3 py-2 rounded-lg backdrop-blur-sm shadow-lg">
+              <div className="flex items-center">
+                <div className="h-2 w-2 bg-green-400 rounded-full mr-2 animate-pulse"></div>
+                <span className="text-sm font-medium">Screen sharing active</span>
+              </div>
             </div>
           </motion.div>
-        </div>
-      )}
-
-      {/* Participants List Modal (for mobile) */}
-      <AnimatePresence>
-        {participants.length > 6 && (
-          <div className="sm:hidden">
-            {/* This would be triggered by a participants button - implementation depends on your needs */}
-          </div>
         )}
+      </AnimatePresence>
+
+      {/* Participants Count Indicator for Mobile */}
+      <div className="sm:hidden fixed top-4 left-4 z-40">
+        <motion.div
+          className="bg-black/40 backdrop-blur-sm border border-white/10 text-white px-3 py-2 rounded-xl shadow-lg"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          <div className="flex items-center space-x-2">
+            <div className="flex -space-x-2">
+              {participants.slice(0, 3).map((participant, index) => (
+                <Avatar key={participant.user_id} className="h-6 w-6 border-2 border-white/20">
+                  <AvatarImage src={`https://i.pravatar.cc/150?u=${participant.user_id}`} />
+                  <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-500 text-white text-xs">
+                    {participant.username?.[0]?.toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              ))}
+              {participants.length > 3 && (
+                <div className="h-6 w-6 bg-gray-600 rounded-full border-2 border-white/20 flex items-center justify-center">
+                  <span className="text-xs text-white">+{participants.length - 3}</span>
+                </div>
+              )}
+            </div>
+            <span className="text-sm font-medium">{participants.length}</span>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Room Info Header for Mobile */}
+      <div className="sm:hidden fixed top-4 left-1/2 transform -translate-x-1/2 z-40">
+        <motion.div
+          className="bg-black/40 backdrop-blur-sm border border-white/10 text-white px-4 py-2 rounded-xl shadow-lg max-w-xs"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <div className="text-center">
+            <h2 className="font-semibold text-sm truncate">{room?.name}</h2>
+            <p className="text-xs text-white/70">
+              {isVideoMode ? 'Video Call' : 'Voice Call'}
+            </p>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Hand Raised Notifications */}
+      <AnimatePresence>
+        {participants.filter(p => p.hand_raised && p.user_id !== currentUser?.id).map((participant) => (
+          <motion.div
+            key={`hand-${participant.user_id}`}
+            className="fixed top-32 right-4 z-50"
+            initial={{ opacity: 0, x: 100 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 100 }}
+          >
+            <div className="bg-yellow-500/20 border border-yellow-500/50 text-yellow-400 px-4 py-3 rounded-lg backdrop-blur-sm shadow-lg max-w-xs">
+              <div className="flex items-center">
+                <HandMetal className="h-4 w-4 mr-2" />
+                <div>
+                  <p className="text-sm font-medium">{participant.username}</p>
+                  <p className="text-xs opacity-70">has raised their hand</p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        ))}
       </AnimatePresence>
     </div>
   );

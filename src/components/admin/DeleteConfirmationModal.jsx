@@ -28,11 +28,7 @@ const DeleteConfirmationModal = ({
     setTimeout(() => {
       setIsLoading(false);
       onConfirm();
-      toast({
-        title: "Deleted",
-        description: "The item has been deleted successfully",
-      });
-    }, 1000);
+    },1000);
   };
 
   return (

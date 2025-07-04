@@ -22,7 +22,7 @@ const DashboardExplore = () => {
   const [roomTypes, setRoomTypes] = useState([]);
   const [tags, setTags] = useState([]);
   const [languages, setLanguages] = useState([]);
-  
+
   // Filter states
   const [selectedLanguage, setSelectedLanguage] = useState('all');
   const [selectedRoomType, setSelectedRoomType] = useState('all');
@@ -114,12 +114,12 @@ const DashboardExplore = () => {
         // For private rooms, we might need password - you can implement a password dialog
         const password = prompt('This room is private. Enter password:');
         if (!password) return;
-        
+
         await roomApi.joinRoom(room.id, password);
       } else {
         await roomApi.joinRoom(room.id);
       }
-      
+
       navigate(`/room/${room.id}`);
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to join room');
@@ -130,15 +130,15 @@ const DashboardExplore = () => {
     setRooms(prev => [newRoom, ...prev]);
     setCreateDialogOpen(false);
     // Optionally navigate to the new room
-    console.log("New room id:",newRoom.id)
-    navigate(`/room/${newRoom.id}`);
+    console.log("New room id:", newRoom.id)
+    // navigate(`/room/${newRoom.id}`);
   };
 
   const formatTimeAgo = (dateString) => {
     const now = new Date();
     const date = new Date(dateString);
     const diffInMinutes = Math.floor((now - date) / (1000 * 60));
-    
+
     if (diffInMinutes < 1) return 'Just now';
     if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
     if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
@@ -172,10 +172,10 @@ const DashboardExplore = () => {
         {error && (
           <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl mb-6">
             {error}
-            <Button 
-              onClick={loadRoomData} 
-              variant="outline" 
-              size="sm" 
+            <Button
+              onClick={loadRoomData}
+              variant="outline"
+              size="sm"
               className="ml-4 border-red-500/20 hover:bg-red-500/10"
             >
               Retry
@@ -271,7 +271,7 @@ const DashboardExplore = () => {
                     <Lock className="h-4 w-4 text-yellow-400 flex-shrink-0" />
                   )}
                 </div>
-                
+
                 {room.description && (
                   <p className="text-sm text-gray-400 mt-1 line-clamp-2">
                     {room.description}
@@ -348,8 +348,8 @@ const DashboardExplore = () => {
         {filteredRooms.length === 0 && !loading && (
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
-              {searchTerm || selectedLanguage !== 'all' || selectedRoomType !== 'all' 
-                ? 'No rooms match your filters' 
+              {searchTerm || selectedLanguage !== 'all' || selectedRoomType !== 'all'
+                ? 'No rooms match your filters'
                 : 'No live rooms available at the moment'
               }
             </div>
@@ -373,8 +373,8 @@ const DashboardExplore = () => {
         </svg>
       </Button>
 
-      <CreateRoomDialog 
-        isOpen={createDialogOpen} 
+      <CreateRoomDialog
+        isOpen={createDialogOpen}
         onClose={() => setCreateDialogOpen(false)}
         onRoomCreated={handleRoomCreated}
         roomTypes={roomTypes}

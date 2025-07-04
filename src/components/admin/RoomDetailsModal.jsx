@@ -14,16 +14,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
 const RoomDetailsModal = ({ isOpen, onClose, room }) => {
   if (!room) return null;
 
-  // Sample members for display
-  const dummyMembers = [
-    { id: 1, name: "Sarah Johnson", avatar: "https://i.pravatar.cc/150?u=sarah", status: "active" },
-    { id: 2, name: "Mike Peterson", avatar: "https://i.pravatar.cc/150?u=mike", status: "active" },
-    { id: 3, name: "Emma Wilson", avatar: "https://i.pravatar.cc/150?u=emma", status: "inactive" },
-    { id: 4, name: "Alex Thompson", avatar: "https://i.pravatar.cc/150?u=alex", status: "active" },
-  ];
-
+  
   // Sample tags
-  const roomTags = ["beginners", "conversation", "friendly", room.language.toLowerCase()];
+  
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -66,11 +59,15 @@ const RoomDetailsModal = ({ isOpen, onClose, room }) => {
           <div>
             <p className="text-sm text-gray-400 mb-2">Tags</p>
             <div className="flex flex-wrap gap-2">
-              {roomTags.map(tag => (
-                <Badge key={tag} className="bg-white/10 hover:bg-white/20">
-                  #{tag}
-                </Badge>
-              ))}
+              {room.tags && room.tags.length > 0 ? (
+                room.tags.map(tag => (
+                  <Badge key={tag.id} className="bg-white/10 hover:bg-white/20">
+                    #{tag.name}
+                  </Badge>
+                ))
+              ) : (
+                <span className="text-gray-500">No tags</span>
+              )}
             </div>
           </div>
 
@@ -78,20 +75,24 @@ const RoomDetailsModal = ({ isOpen, onClose, room }) => {
           <div>
             <p className="text-sm text-gray-400 mb-2">Members</p>
             <div className="space-y-2 max-h-48 overflow-y-auto pr-2 scrollbar-none">
-              {dummyMembers.map(member => (
-                <div key={member.id} className="flex items-center justify-between bg-black/20 p-2 rounded-lg">
-                  <div className="flex items-center">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={member.avatar} alt={member.name} />
-                      <AvatarFallback>{member.name[0]}</AvatarFallback>
-                    </Avatar>
-                    <span className="ml-2 font-medium">{member.name}</span>
+              {room.members && room.members.length > 0 ? (
+                room.members.map(member => (
+                  <div key={member.user_id} className="flex items-center justify-between bg-black/20 p-2 rounded-lg">
+                    <div className="flex items-center">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={`https://i.pravatar.cc/150?u=${member.user_id}`} alt={member.username} />
+                        <AvatarFallback>{member.username?.[0]?.toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <span className="ml-2 font-medium">{member.username}</span>
+                    </div>
+                    <Badge className={member.left_at ? 'bg-gray-500/20 text-gray-400' : 'bg-green-500/20 text-green-400'}>
+                      {member.left_at ? 'inactive' : 'active'}
+                    </Badge>
                   </div>
-                  <Badge className={member.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}>
-                    {member.status}
-                  </Badge>
-                </div>
-              ))}
+                ))
+              ) : (
+                <span className="text-gray-500">No members</span>
+              )}
             </div>
           </div>
         </div>

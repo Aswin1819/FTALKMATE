@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../../components/ui/select";
-import { Pencil, Plus, X } from 'lucide-react';
+import { Pencil, Plus, X, Loader2 } from 'lucide-react';
 import { toast } from '../../../hooks/use-toast';
 import axiosInstance from '../../../features/auth/axiosInstance';
 import { useSelector, useDispatch} from 'react-redux';
@@ -36,6 +36,7 @@ const UserProfile = () => {
   const user = useSelector((state) => state.auth.user); // For username, etc.
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
   const dispatch = useDispatch();
 
   //For language and proficiency
@@ -98,6 +99,7 @@ const UserProfile = () => {
   const handleAvatarChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    setProfileLoading(true);
     const formData = new FormData();
     formData.append('avatar', file);
     axiosInstance.put('/profile/update/', formData, {
@@ -108,7 +110,8 @@ const UserProfile = () => {
         dispatch(getCurrentUser());
         toast({ title: "Profile updated", description: "Your avatar was updated successfully" });
       })
-      .catch(() => toast({ title: "Error", description: "Failed to update avatar", variant: "destructive" }));
+      .catch(() => toast({ title: "Error", description: "Failed to update avatar", variant: "destructive" }))
+      .finally(() => setProfileLoading(false));
   };
 
   // Add language (native or learning)
@@ -178,6 +181,11 @@ const UserProfile = () => {
                     <AvatarFallback className="text-xl">
                       {profile?.user?.username?.[0]?.toUpperCase() || "U"}
                     </AvatarFallback>
+                    {profileLoading && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full">
+                        <Loader2 className="h-10 w-10 text-white animate-spin" />
+                      </div>
+                    )}
                   </Avatar>
                   {/* Pencil overlay on hover */}
                   {avatarHover && (

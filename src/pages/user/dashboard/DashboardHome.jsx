@@ -13,8 +13,8 @@ const recentRooms = [
     title: 'IELTS Speaking Practice',
     tags: ['English', 'IELTS', 'Practice'],
     userCount: 4,
-    creator: { 
-      name: 'Sarah Johnson', 
+    creator: {
+      name: 'Sarah Johnson',
       avatar: 'https://i.pravatar.cc/150?img=1',
       initials: 'SJ'
     },
@@ -25,8 +25,8 @@ const recentRooms = [
     title: 'Spanish Conversation Club',
     tags: ['Spanish', 'Beginner', 'Casual'],
     userCount: 3,
-    creator: { 
-      name: 'Miguel Ramos', 
+    creator: {
+      name: 'Miguel Ramos',
       avatar: 'https://i.pravatar.cc/150?img=2',
       initials: 'MR'
     },
@@ -40,8 +40,8 @@ const suggestedRooms = [
     title: 'English Debate Night',
     tags: ['English', 'Debate', 'Advanced'],
     userCount: 6,
-    creator: { 
-      name: 'Alex Chen', 
+    creator: {
+      name: 'Alex Chen',
       avatar: 'https://i.pravatar.cc/150?img=3',
       initials: 'AC'
     },
@@ -52,8 +52,8 @@ const suggestedRooms = [
     title: 'French for Beginners',
     tags: ['French', 'Beginner', 'Learning'],
     userCount: 2,
-    creator: { 
-      name: 'Claire Dubois', 
+    creator: {
+      name: 'Claire Dubois',
       avatar: 'https://i.pravatar.cc/150?img=4',
       initials: 'CD'
     },
@@ -72,7 +72,7 @@ const DashboardHome = () => {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="relative w-full md:w-96">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-            <Input 
+            <Input
               type="text"
               placeholder="Search your rooms..."
               value={searchTerm}
@@ -80,8 +80,8 @@ const DashboardHome = () => {
               className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-500 w-full"
             />
           </div>
-          
-          <Button 
+
+          <Button
             onClick={() => setCreateDialogOpen(true)}
             className="bg-gradient-to-r from-neon-purple to-neon-blue text-white hover:from-neon-purple/90 hover:to-neon-blue/90 transition-all flex items-center gap-2"
           >
@@ -89,9 +89,9 @@ const DashboardHome = () => {
           </Button>
         </div>
       </div>
-      
+
       {/* User Stats Section */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
@@ -108,7 +108,7 @@ const DashboardHome = () => {
             <TrendingUp className="h-6 w-6 text-neon-purple" />
           </div>
         </div>
-        
+
         {/* Streak Stats */}
         <div className="glass-morphism p-4 rounded-xl flex items-center justify-between">
           <div>
@@ -120,7 +120,7 @@ const DashboardHome = () => {
             <Star className="h-6 w-6 text-neon-blue" />
           </div>
         </div>
-        
+
         {/* Language Practice */}
         <div className="glass-morphism p-4 rounded-xl flex items-center justify-between">
           <div>
@@ -133,31 +133,31 @@ const DashboardHome = () => {
           </div>
         </div>
       </motion.div>
-      
+
       {/* Recent Rooms Section */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5, delay: 0.1 }}
         className="mb-8"
       >
         <h2 className="text-xl font-bold text-white mb-4">Recently Joined Rooms</h2>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {recentRooms.map((room, index) => (
             <RoomCard key={room.id} room={room} index={index} />
           ))}
         </div>
       </motion.div>
-      
+
       {/* Suggested Rooms Section */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5, delay: 0.2 }}
       >
         <h2 className="text-xl font-bold text-white mb-4">Suggested For You</h2>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {suggestedRooms.map((room, index) => (
             <RoomCard key={room.id} room={room} index={index} />
@@ -177,9 +177,9 @@ const DashboardHome = () => {
       </Button>
 
       {/* Create Room Dialog */}
-      <CreateRoomDialog 
-        isOpen={createDialogOpen} 
-        onClose={() => setCreateDialogOpen(false)} 
+      <CreateRoomDialog
+        isOpen={createDialogOpen}
+        onClose={() => setCreateDialogOpen(false)}
       />
     </>
   );
