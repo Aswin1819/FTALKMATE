@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from "../ui/button";
 import { Globe, Moon, Menu, X } from "lucide-react";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 
 const Header = () => {
@@ -9,6 +9,8 @@ const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const user = useSelector((state)=> state.auth.user)
   const navigate = useNavigate();
+  const location = useLocation();
+  const isIndexpage = location.pathname==='/';
 
   useEffect(() => {
     const handleScroll = () => {
@@ -27,18 +29,21 @@ const Header = () => {
     >
       <div className="container mx-auto flex items-center justify-between">
         {/* Logo */}
-        <div className="flex items-center gap-2">
+        <div
+        onClick={() => navigate('/')}
+         className="flex items-center gap-2">
           <div className="h-10 w-10 rounded-full bg-gradient-to-br from-neon-blue via-neon-purple to-neon-pink glow-purple"></div>
           <span className="font-bold text-xl text-gradient-purple">TalkMate</span>
         </div>
 
-        {/* Desktop Navigation */}
+        {isIndexpage &&(
         <nav className="hidden md:flex items-center space-x-8">
           <a href="#features" className="text-sm text-gray-300 hover:text-neon-purple transition-colors">Features</a>
           <a href="#comparison" className="text-sm text-gray-300 hover:text-neon-purple transition-colors">Comparison</a>
           <a href="#testimonials" className="text-sm text-gray-300 hover:text-neon-purple transition-colors">Testimonials</a>
           <a href="#premium" className="text-sm text-gray-300 hover:text-neon-purple transition-colors">Premium</a>
         </nav>
+        )}
 
         {/* Desktop Actions */}
         <div className="hidden md:flex items-center space-x-3">

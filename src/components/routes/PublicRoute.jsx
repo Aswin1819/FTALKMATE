@@ -1,10 +1,11 @@
 import React from 'react';
 import { useSelector } from 'react-redux';
-import { Navigate } from 'react-router-dom';
+import { Navigate} from 'react-router-dom';
 
 const PublicRoute = ({ children }) => {
   const { user, isInitialized, loading } = useSelector((state) => state.auth);
   console.log("User-PublicRoute:",user)
+ 
 
   // Show loading while checking authentication status
    if (!isInitialized || loading) {
@@ -19,7 +20,7 @@ const PublicRoute = ({ children }) => {
   }
 
   // Redirect to dashboard if user is already logged in
-  if (user && user.is_verified ) {
+  if (user && user.is_verified) {
     return <Navigate to="/dashboard" replace />;
   }
 

@@ -9,6 +9,7 @@ import AdminPublicRoute from '../components/routes/AdminPublicRoute';
 import TaxonomyManagement from '../pages/admin/TaxonomyManagement';
 import RoomManagement from '../pages/admin/RoomManagement';
 import ModerationReports from '../pages/admin/ModerationReports';
+import SubscriptionManagement from '../pages/admin/SubscriptionManagement';
 
 const adminRoutes = [
   // Admin Login Route - Only accessible when admin not logged in
@@ -37,6 +38,7 @@ const adminRoutes = [
     <Route path="taxonomy" element={<TaxonomyManagement/>}/>
     <Route path="rooms" element={<RoomManagement/>}/>
     <Route path='moderation' element={<ModerationReports/>}/>
+    <Route path='subscriptions' element={<SubscriptionManagement/>}/>
     {/* Add more admin routes here */}
   </Route>,
 ];

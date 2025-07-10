@@ -1,8 +1,10 @@
 
 import React from 'react';
 import { Button } from "../ui/button";
+import { useNavigate } from 'react-router-dom';
 
 const Premium = () => {
+  const navigate = useNavigate();
   return (
     <section id="premium" className="py-20 relative bg-[#0c0812]">
       {/* Curved top transition */}
@@ -50,10 +52,12 @@ const Premium = () => {
                     <span className="text-gray-200">No advertisements during practice sessions</span>
                   </li>
                 </ul>
-                <Button className="bg-neon-purple hover:bg-neon-purple/90 text-white glow-purple px-8 py-6 text-lg hover:scale-105 hover:glow-pink transition-all duration-300">
+                <Button
+                 onClick={() => navigate('/subscription')}
+                 className="bg-neon-purple hover:bg-neon-purple/90 text-white glow-purple px-8 py-6 text-lg hover:scale-105 hover:glow-pink transition-all duration-300">
                   Go Premium
                 </Button>
-                <p className="text-gray-400 text-sm mt-3">Starting at $8.99/month — Cancel anytime</p>
+                <p className="text-gray-400 text-sm mt-3">Starting at ₹189/month — Cancel anytime</p>
               </div>
               
               <div className="relative">

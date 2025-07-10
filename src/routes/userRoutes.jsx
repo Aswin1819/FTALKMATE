@@ -12,6 +12,7 @@ import PublicRoute from '../components/routes/PublicRoute';
 import Settings from '../pages/user/dashboard/Settings';
 import DashboardExplore from '../pages/user/dashboard/DashboardExplore';
 import LiveRoom from '../pages/user/dashboard/LiveRoom';
+import Subscription from '../pages/user/Subscription';
 
 const userRoutes = [
   <Route path='/' element={<Index />} key="home" />,
@@ -26,9 +27,14 @@ const userRoutes = [
     key="otp"
   />,
   <Route
-    path="/reset-password"
-    element={<PublicRoute><ResetPassword /></PublicRoute>}
-    key="reset-password"
+  path="/reset-password"
+  element={<PublicRoute><ResetPassword /></PublicRoute>}
+  key="reset-password"
+  />,
+  <Route 
+    path="/subscription" 
+    element={<ProtectedRoute><Subscription /></ProtectedRoute>} 
+    key="subscription"
   />,
   <Route 
     path="/dashboard" 
