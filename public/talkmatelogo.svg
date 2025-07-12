@@ -1,0 +1,16 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gradient" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8E2DE2"></stop>
+      <stop offset="1" stop-color="#4A00E0"></stop>
+    </linearGradient>
+  </defs>
+  <circle cx="32" cy="32" r="24" fill="url(#gradient)" stroke="#00FFFF" stroke-width="1.5" opacity="0.85"></circle>
+  <path d="M22 25C23.5 22 27 20 32 20C37 20 40.5 22 42 25" stroke="#00FFFF" stroke-width="1.5" stroke-linecap="round" opacity="0.75"></path>
+  <path d="M22 39C23.5 42 27 44 32 44C37 44 40.5 42 42 39" stroke="#00FFFF" stroke-width="1.5" stroke-linecap="round" opacity="0.75"></path>
+  <circle cx="24" cy="32" r="1.5" fill="#00FFFF"></circle>
+  <circle cx="40" cy="32" r="1.5" fill="#00FFFF"></circle>
+  <path d="M16 32C16 22 24 16 32 16C40 16 48 22 48 32C48 42 40 48 32 48C24 48 16 42 16 32Z" stroke="#ffffff44" stroke-width="1" opacity="0.25"></path>
+  <!-- Headphone arc -->
+  <path d="M14 32C14 19 24 10 32 10C40 10 50 19 50 32" stroke="#FF00FF" stroke-width="1.2" stroke-linecap="round" opacity="0.4"></path>
+</svg>

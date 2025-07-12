@@ -23,12 +23,20 @@ const OTPVerification = () => {
   
   // Get email from either location state or search params
   const email = state?.email || searchParams.get('email');
-  
   // Check if this is for password reset
   const isPasswordReset = searchParams.get('type') === 'reset-password' || state?.type === 'reset-password';
 
+  // Unique key for localStorage based on email and type
+  const timerKey = `otp_expiry_${email}_${isPasswordReset ? 'reset' : 'verify'}`;
+
+  // Helper to format seconds as MM:SS
+  const formatTime = (secs) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
   useEffect(() => {
-    // Redirect if no email is provided
     if (!email) {
       toast({
         title: "Error",
@@ -39,7 +47,21 @@ const OTPVerification = () => {
       return;
     }
 
-    // Start resend timer countdown
+    // On mount, check localStorage for expiry
+    let expiry = localStorage.getItem(timerKey);
+    let now = Date.now();
+    let left = 0;
+    if (expiry && !isNaN(Number(expiry))) {
+      left = Math.max(0, Math.floor((Number(expiry) - now) / 1000));
+    }
+    if (!expiry || left <= 0) {
+      // Set new expiry for 2 minutes from now
+      expiry = now + 120 * 1000;
+      localStorage.setItem(timerKey, expiry);
+      left = 120;
+    }
+    setResendTimer(left);
+
     timerRef.current = setInterval(() => {
       setResendTimer((prev) => {
         if (prev <= 1) {
@@ -53,7 +75,15 @@ const OTPVerification = () => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [email, navigate]);
+    // eslint-disable-next-line
+  }, [email, timerKey, navigate]);
+
+  useEffect(() => {
+    // If timer hits 0, clear expiry from localStorage
+    if (resendTimer === 0) {
+      localStorage.removeItem(timerKey);
+    }
+  }, [resendTimer, timerKey]);
 
   const handleVerifyOtp = async () => {
     if (otp.length !== 6) {
@@ -69,38 +99,43 @@ const OTPVerification = () => {
     try {
       if (isPasswordReset) {
         // Verify OTP for password reset
-        const result = await dispatch(verifyPasswordResetOtp({ email, otp })).unwrap();
-        
+        await dispatch(verifyPasswordResetOtp({ email, otp })).unwrap();
         toast({
           title: "OTP Verified",
           description: "You can now reset your password",
         });
-        
-        // Navigate to reset password page with reset token
-        setTimeout(() => {
-          navigate(`/reset-password?email=${encodeURIComponent(email)}`);
-        });
+        navigate(`/reset-password?email=${encodeURIComponent(email)}`); // <--- Direct navigation
       } else {
         // Verify OTP for email verification
         await dispatch(verifyOtp({ email, otp })).unwrap();
-        
         toast({
           title: "Email Verified",
           description: "Your email has been successfully verified",
         });
-        
-        // Navigate to dashboard or auth page
-        setTimeout(() => {
-          navigate('/auth');
-        });
+        navigate('/auth'); // <--- Direct navigation
       }
-    } catch (err) {
-      toast({
-        title: "Verification Failed",
-        description: err?.message || 'Invalid OTP. Please try again.',
-        variant: "destructive",
-      });
-    } finally {
+    }catch (err) {
+  // Try to extract error messages from API response
+  let description = 'Invalid OTP. Please try again.';
+  if (err?.response?.data) {
+    const data = err.response.data;
+    if (typeof data === 'string') {
+      description = data;
+    } else if (typeof data === 'object') {
+      // Collect all error messages into a single string
+      description = Object.values(data)
+        .flat()
+        .join(' ');
+    }
+  } else if (err?.message) {
+    description = err.message;
+  }
+  toast({
+    title: "Verification Failed",
+    description,
+    variant: "destructive",
+  });
+} finally {
       setIsVerifying(false);
     }
   };
@@ -110,10 +145,8 @@ const OTPVerification = () => {
 
     try {
       if (isPasswordReset) {
-        // Resend OTP for password reset
         await dispatch(resendPasswordResetOtp({ email })).unwrap();
       } else {
-        // Resend OTP for email verification
         await dispatch(resendOtp({ email })).unwrap();
       }
 
@@ -122,9 +155,10 @@ const OTPVerification = () => {
         description: "A new verification code has been sent to your email",
       });
 
-      // Reset timer to 60 seconds for password reset, 120 for email verification
-      const newTimer = isPasswordReset ? 60 : 120;
-      setResendTimer(newTimer);
+      // Set new expiry for 2 minutes from now
+      const newExpiry = Date.now() + 120 * 1000;
+      localStorage.setItem(timerKey, newExpiry);
+      setResendTimer(120);
 
       // Restart timer
       if (timerRef.current) clearInterval(timerRef.current);
@@ -208,7 +242,7 @@ const OTPVerification = () => {
                   }`}
                 >
                   {resendTimer > 0
-                    ? `Resend OTP in ${resendTimer}s`
+                    ? `Resend OTP in ${formatTime(resendTimer)}`
                     : 'Resend OTP'}
                 </button>
               </div>

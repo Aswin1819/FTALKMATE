@@ -78,7 +78,6 @@ const AdminLayout = () => {
     { icon: Flag, label: "Moderation & Reports", path: "/admin/moderation" },
     { icon: CreditCard, label: "Subscriptions", path: "/admin/subscriptions" },
     { icon: Tag, label: "Taxonomy", path: "/admin/taxonomy" },
-    { icon: Settings, label: "Settings", path: "/admin/settings" },
   ];
 
   const getCurrentPageTitle = () => {

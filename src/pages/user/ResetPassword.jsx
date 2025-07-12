@@ -76,9 +76,8 @@ const ResetPassword = () => {
         title: 'Password Changed Successfully',
         description: 'Your password has been updated. Please log in with your new password.',
       });
-      setTimeout(() => {
-        navigate('/auth');
-      }, 1000);
+      navigate('/auth');
+      
     } catch (err) {
       toast({
         title: 'Password Reset Failed',

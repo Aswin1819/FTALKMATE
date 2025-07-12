@@ -62,8 +62,8 @@ const UserProfile = () => {
       axiosInstance.get('/proficiency-choices/')
     ])
       .then(([profileRes, langRes, profRes]) => {
-        setProfile(profileRes.data.profile);
-        setTempBio(profileRes.data.profile.bio || '');
+        setProfile(profileRes.data);
+        setTempBio(profileRes.data.bio || '');
         setAvailableLanguages(langRes.data);
         setProficiencyLevels(profRes.data);
       })
@@ -78,7 +78,7 @@ const UserProfile = () => {
     .then(res => {
       console.log("Update bio response:", res);
       // Try both possible response structures
-      const updatedProfile = res.data.profile || res.data;
+      const updatedProfile = res.data;
       setProfile(updatedProfile);
       setTempBio(updatedProfile.bio || '');
       setIsEditingBio(false);
@@ -106,7 +106,7 @@ const UserProfile = () => {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
       .then(res => {
-        setProfile(res.data.profile || res.data);
+        setProfile(res.data);
         dispatch(getCurrentUser());
         toast({ title: "Profile updated", description: "Your avatar was updated successfully" });
       })
@@ -130,7 +130,7 @@ const UserProfile = () => {
     ];
     axiosInstance.patch('/profile/update/', { [langField]: updated })
       .then(res => {
-        setProfile(res.data.profile || res.data);
+        setProfile(res.data);
         setIsAddLanguageLearningOpen(false);
         setIsAddLanguageSpokenOpen(false);
         setNewLanguage('');
@@ -152,7 +152,7 @@ const UserProfile = () => {
       }));
     axiosInstance.patch('/profile/update/', { [langField]: updated })
       .then(res => {
-        setProfile(res.data.profile || res.data);
+        setProfile(res.data);
         toast({ title: "Language removed", description: "The language has been removed from your profile" });
       })
       .catch(() => toast({ title: "Error", description: "Failed to update languages", variant: "destructive" }));
@@ -486,10 +486,15 @@ const UserProfile = () => {
                 {/* XP Progress Bar */}
                 <div>
                   <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-neon-purple to-neon-blue" style={{ width: "45%" }}></div>
+                    <div
+                      className="h-full bg-gradient-to-r from-neon-purple to-neon-blue"
+                      style={{ width: `${(profile.xp % 1000) / 10}%` }}
+                    ></div>
                   </div>
                   <div className="flex justify-end mt-1">
-                    <span className="text-xs text-gray-400">3240/7200 XP to Level 6</span>
+                    <span className="text-xs text-gray-400">
+                      {profile.xp % 1000}/1000 XP to Level {profile.level + 1}
+                    </span>
                   </div>
                 </div>
               </div>

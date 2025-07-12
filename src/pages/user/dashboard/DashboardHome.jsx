@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axiosInstance from '../../../features/auth/axiosInstance'; // Use your axios instance
 import { motion } from 'framer-motion';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -64,6 +65,25 @@ const suggestedRooms = [
 const DashboardHome = () => {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [stats, setStats] = useState({
+    daily_xp: 0,
+    current_streak: 0,
+    weekly_practice_hours: 0,
+  });
+
+  useEffect(() => {
+    axiosInstance.get('/profile/') // Adjust endpoint if needed
+      .then(res => {
+        setStats({
+          daily_xp: res.data.daily_xp ?? 0,
+          current_streak: res.data.current_streak ?? 0,
+          weekly_practice_hours: res.data.weekly_practice_hours ?? 0,
+        });
+      })
+      .catch(err => {
+        console.log(err)
+      });
+  }, []);
 
   return (
     <>
@@ -101,8 +121,9 @@ const DashboardHome = () => {
         <div className="glass-morphism p-4 rounded-xl flex items-center justify-between">
           <div>
             <h3 className="text-gray-400 text-sm">Daily XP</h3>
-            <p className="text-2xl font-bold text-white">125 XP</p>
-            <p className="text-xs text-neon-purple">+15% from yesterday</p>
+            <p className="text-2xl font-bold text-white">{stats.daily_xp ?? 0} XP</p>
+            {/* Optionally show % change if you add it to backend */}
+            <p className="text-xs text-neon-purple"></p>
           </div>
           <div className="h-12 w-12 rounded-full bg-neon-purple/20 flex items-center justify-center">
             <TrendingUp className="h-6 w-6 text-neon-purple" />
@@ -113,7 +134,7 @@ const DashboardHome = () => {
         <div className="glass-morphism p-4 rounded-xl flex items-center justify-between">
           <div>
             <h3 className="text-gray-400 text-sm">Current Streak</h3>
-            <p className="text-2xl font-bold text-white">12 Days</p>
+            <p className="text-2xl font-bold text-white">{stats.current_streak ?? 0} Days</p>
             <p className="text-xs text-neon-blue">Keep it up!</p>
           </div>
           <div className="h-12 w-12 rounded-full bg-neon-blue/20 flex items-center justify-center">
@@ -125,7 +146,7 @@ const DashboardHome = () => {
         <div className="glass-morphism p-4 rounded-xl flex items-center justify-between">
           <div>
             <h3 className="text-gray-400 text-sm">Practice Hours</h3>
-            <p className="text-2xl font-bold text-white">8.5 hrs</p>
+            <p className="text-2xl font-bold text-white">{stats.weekly_practice_hours ?? 0} hrs</p>
             <p className="text-xs text-green-400">This week</p>
           </div>
           <div className="h-12 w-12 rounded-full bg-green-500/20 flex items-center justify-center">

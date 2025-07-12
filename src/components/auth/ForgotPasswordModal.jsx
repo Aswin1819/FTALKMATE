@@ -20,7 +20,7 @@ import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { useToast } from '../../hooks/use-toast'
 import { useNavigate } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import { resendPasswordResetOtp } from '../../features/auth/authThunks';
 
 const forgotPasswordSchema = z.object({

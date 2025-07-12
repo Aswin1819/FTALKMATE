@@ -1,15 +1,22 @@
 import { cn } from '../../lib/utils';
-import React from 'react';
+import React, { useEffect,useState } from 'react';
 import { ChevronLeft, ChevronRight, Home, Compass, PlusSquare, User, Settings, LogOut } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
 import { useSelector } from 'react-redux';
+import axiosInstance from '../../features/auth/axiosInstance';
 
 const Sidebar = ({ collapsed, onToggleCollapse, onLogout }) => {
   const user  = useSelector((state) => state.auth.user);
+  const [profile,setProfile] = useState(null);
   const location = useLocation();
   console.log("Sidebar rendered with user:", user);
+
+  useEffect(() => {
+    axiosInstance.get('/profile/')
+      .then(res => setProfile(res.data));
+  },[]);
 
   const navItems = [
     { 
@@ -88,7 +95,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, onLogout }) => {
           )}
         >
           <Avatar className={cn("border-2 border-white/10", collapsed ? "h-10 w-10" : "h-12 w-12")}>
-            <AvatarImage src={user?.profile?.avatar || user?.avatar} /> 
+            <AvatarImage src={profile?.avatar} /> 
             <AvatarFallback>
               {user?.username?.slice(0,2)?.toUpperCase() || "U"}
             </AvatarFallback>
@@ -96,37 +103,37 @@ const Sidebar = ({ collapsed, onToggleCollapse, onLogout }) => {
           
           {!collapsed && (
             <div className="ml-3">
-              <div className="font-medium text-white">{user?.username || user?.profile?.user?.username}</div>
-              <div className="text-sm text-white/60">Level {user?.profile?.level || user?.level }</div>
+              <div className="font-medium text-white">{profile?.user?.username}</div>
+              <div className="text-sm text-white/60">Level {profile?.level}</div>
             </div>
           )}
         </div>
         
         {/* User stats */}
-        {!collapsed && (
+        {!collapsed && profile && (
           <>
             <div className="mt-4 bg-white/5 p-2 rounded-lg">
               <div className="flex justify-between items-center mb-1">
                 <span className="text-xs text-white/60">XP</span>
-                <span className="text-xs text-white font-medium">3240/7200</span>
+                <span className="text-xs text-white font-medium">{(profile.xp % 1000) || 0}/1000</span>
               </div>
               <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-neon-purple to-neon-blue" style={{ width: "45%" }}></div>
+                <div className="h-full bg-gradient-to-r from-neon-purple to-neon-blue" style={{ width: `${((profile.xp % 1000) / 10) || 0}%` }}></div>
               </div>
             </div>
             
             {/* Social Stats */}
             <div className="mt-4 grid grid-cols-3 gap-2 text-center">
               <div className="bg-white/5 p-2 rounded-lg">
-                <div className="text-sm font-medium text-white">{ user?.followers_count || user?.profile?.followers_count|| 0}</div>
+                <div className="text-sm font-medium text-white">{profile.followers_count || 0}</div>
                 <div className="text-xs text-white/60">Followers</div>
               </div>
               <div className="bg-white/5 p-2 rounded-lg">
-                <div className="text-sm font-medium text-white">{ user?.following_count || user?.profile?.following_count|| 0}</div>
+                <div className="text-sm font-medium text-white">{profile.following_count || 0}</div>
                 <div className="text-xs text-white/60">Following</div>
               </div>
               <div className="bg-white/5 p-2 rounded-lg">
-                <div className="text-sm font-medium text-white">{ user?.friends_count || user?.profile?.user?.profile_summary?.friends|| 0}</div>
+                <div className="text-sm font-medium text-white">{profile.friends_count || 0}</div>
                 <div className="text-xs text-white/60">Friends</div>
               </div>
             </div>
