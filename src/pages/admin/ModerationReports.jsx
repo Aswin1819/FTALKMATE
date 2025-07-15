@@ -49,43 +49,46 @@ const ModerationReports = () => {
   const [filterReason, setFilterReason] = useState('all');
   const [selectedReport, setSelectedReport] = useState(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const [loading, setLoading] =  useState(true);
+  const [loading, setLoading] = useState(true);
   const [reports, setReports] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [nextPage, setNextPage] = useState(null);
+  const [prevPage, setPrevPage] = useState(null);
+  const [totalCount, setTotalCount] = useState(0);
+  const pageSize = 5;
 
-  
+  const fetchReports = async (page = 1) => {
+    setLoading(true);
+    try {
+      const params = {
+        page,
+        page_size: pageSize,
+        search: searchTerm,
+        reason: filterReason !== 'all' ? filterReason : undefined,
+      };
+      const res = await adminModerationApi.fetchReports(params);
+      setReports(res.results);
+      setNextPage(res.next);
+      setPrevPage(res.previous);
+      setTotalCount(res.count);
+      setCurrentPage(page);
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to fetch reports', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchReports = async () => {
-      setLoading(true);
-      try {
-        const data = await adminModerationApi.fetchReports();
-        setReports(data);
-      } catch (err) {
-        toast({ title: "Error", description: "Failed to fetch reports", variant: "destructive" });
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchReports();
-  }, []);
+    fetchReports(1);
+  }, [searchTerm, filterReason]);
 
-  const pendingReports = reports.filter(report => report.status === "pending");
-  const resolvedReports = reports.filter(report => report.status === "resolved");
-  const dismissedReports = reports.filter(report => report.status === "dismissed");
-  const reasons = Array.from(new Set(reports.map(report => report.reason)));
+  const handleNextPage = () => {
+    if (nextPage) fetchReports(currentPage + 1);
+  };
 
-  const filterReports = (reports) => {
-    return reports.filter(report => {
-      const matchesSearch = 
-        report.reporter.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        report.reported.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        report.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        report.roomName.toLowerCase().includes(searchTerm.toLowerCase());
-
-      const matchesReason = filterReason === 'all' || report.reason === filterReason;
-
-      return matchesSearch && matchesReason;
-    });
+  const handlePrevPage = () => {
+    if (prevPage && currentPage > 1) fetchReports(currentPage - 1);
   };
 
   const handleViewDetails = (report) => {
@@ -96,276 +99,137 @@ const ModerationReports = () => {
   const handleResolveReport = async (id) => {
     try {
       await adminModerationApi.updateReportStatus(id, 'resolved');
-      setReports(reports => reports.map(r => r.id === id ? { ...r, status: 'resolved' } : r));
-      toast({ title: "Report Resolved", description: `Report #${id} has been marked as resolved` });
+      setReports((r) => r.map((rep) => (rep.id === id ? { ...rep, status: 'resolved' } : rep)));
+      toast({ title: 'Report Resolved', description: `Report #${id} has been resolved.` });
     } catch {
-      toast({ title: "Error", description: "Failed to resolve report", variant: "destructive" });
+      toast({ title: 'Error', description: 'Failed to resolve report', variant: 'destructive' });
     }
   };
+
   const handleDismissReport = async (id) => {
     try {
       await adminModerationApi.updateReportStatus(id, 'dismissed');
-      setReports(reports => reports.map(r => r.id === id ? { ...r, status: 'dismissed' } : r));
-      toast({ title: "Report Dismissed", description: `Report #${id} has been marked as dismissed` });
+      setReports((r) => r.map((rep) => (rep.id === id ? { ...rep, status: 'dismissed' } : rep)));
+      toast({ title: 'Report Dismissed', description: `Report #${id} has been dismissed.` });
     } catch {
-      toast({ title: "Error", description: "Failed to dismiss report", variant: "destructive" });
+      toast({ title: 'Error', description: 'Failed to dismiss report', variant: 'destructive' });
     }
   };
 
-  const handleSuspendUser = (username) => {
-    toast({
-      title: "User Suspended",
-      description: `${username} has been temporarily suspended`,
-    });
+  const handleSuspendUser = async (id) => {
+    try{
+      await adminModerationApi.updateReportStatus(id,'suspend')
+      setReports((r) => r.map((rep) => (rep.id === id ? { ...rep, status:'resolved'}: rep)))
+      toast({ title: 'Success', description: `Report #${id} has been resolved.` });
+    }catch {
+      toast({ title: "Error", description: "Failed to Suspend User", variant: "destructive"});
+    }
+
   };
 
-  const ReportTable = ({ reports }) => {
-    const filteredReports = filterReports(reports);
-    
-    return (
-      <Table>
-        <TableHeader className="bg-black/40">
-          <TableRow className="border-b border-white/10 hover:bg-transparent">
-            <TableHead className="text-gray-400">Reason</TableHead>
-            <TableHead className="text-gray-400">Reporter</TableHead>
-            <TableHead className="text-gray-400">Reported User</TableHead>
-            <TableHead className="text-gray-400">Room</TableHead>
-            <TableHead className="text-gray-400">Time</TableHead>
-            <TableHead className="text-gray-400">Status</TableHead>
-            <TableHead className="text-gray-400">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {filteredReports.length > 0 ? (
-            filteredReports.map((report) => (
-              <TableRow key={report.id} className="border-b border-white/5 hover:bg-white/5">
-                <TableCell>
-                  <Badge className="bg-red-500/20 text-red-400 hover:bg-red-500/30">
-                    {report.reason}
-                  </Badge>
-                </TableCell>
-                <TableCell className="font-medium text-white">{report.reporter}</TableCell>
-                <TableCell className="font-medium text-white">{report.reported}</TableCell>
-                <TableCell>{report.roomName}</TableCell>
-                <TableCell className="text-gray-400">
-                  {formatDistanceToNow(report.timestamp, { addSuffix: true })}
-                </TableCell>
-                <TableCell>
-                  <Badge className={`${
-                    report.status === 'pending' 
-                      ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' 
-                      : report.status === 'resolved'
-                        ? 'bg-neon-green/20 text-neon-green hover:bg-neon-green/30'
-                        : 'bg-gray-500/20 text-gray-400 hover:bg-gray-500/30'
-                  }`}>
-                    {report.status.charAt(0).toUpperCase() + report.status.slice(1)}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="flex space-x-1">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-white/10"
-                      onClick={() => handleViewDetails(report)}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    {report.status === 'pending' && (
-                      <>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-8 w-8 p-0 text-gray-400 hover:text-neon-green hover:bg-white/10"
-                          onClick={() => handleResolveReport(report.id)}
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-8 w-8 p-0 text-gray-400 hover:text-red-400 hover:bg-white/10"
-                          onClick={() => handleDismissReport(report.id)}
-                        >
-                          <XCircle className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-8 w-8 p-0 text-gray-400 hover:text-amber-400 hover:bg-white/10"
-                          onClick={() => handleSuspendUser(report.reported)}
-                        >
-                          <Ban className="h-4 w-4" />
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={7} className="h-24 text-center text-gray-500">
-                No reports match your search criteria
+  const reasons = Array.from(new Set(reports.map((r) => r.reason)));
+  const pendingReports = reports.filter((r) => r.status === 'pending');
+  const resolvedReports = reports.filter((r) => r.status === 'resolved');
+  const dismissedReports = reports.filter((r) => r.status === 'dismissed');
+
+  const ReportTable = ({ reports }) => (
+    <Table>
+      <TableHeader className="bg-black/40">
+        <TableRow>
+          <TableHead className="text-gray-400">Reason</TableHead>
+          <TableHead className="text-gray-400">Reporter</TableHead>
+          <TableHead className="text-gray-400">Reported User</TableHead>
+          <TableHead className="text-gray-400">Room</TableHead>
+          <TableHead className="text-gray-400">Time</TableHead>
+          <TableHead className="text-gray-400">Status</TableHead>
+          <TableHead className="text-gray-400">Actions</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {reports.length > 0 ? (
+          reports.map((report) => (
+            <TableRow key={report.id}>
+              <TableCell><span className="text-red-400">{report.reason}</span></TableCell>
+              <TableCell>{report.reporter}</TableCell>
+              <TableCell>{report.reported}</TableCell>
+              <TableCell>{report.roomName}</TableCell>
+              <TableCell>{formatDistanceToNow(new Date(report.timestamp), { addSuffix: true })}</TableCell>
+              <TableCell>{report.status}</TableCell>
+              <TableCell>
+                <div className="flex space-x-1">
+                  <Button variant="ghost" size="sm" onClick={() => handleViewDetails(report)}><Eye className="h-4 w-4" /></Button>
+                  {report.status === 'pending' && (
+                    <>
+                      <Button variant="ghost" size="sm" onClick={() => handleResolveReport(report.id)}><CheckCircle className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleDismissReport(report.id)}><XCircle className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleSuspendUser(report.id)}><Ban className="h-4 w-4" /></Button>
+                    </>
+                  )}
+                </div>
               </TableCell>
             </TableRow>
-          )}
-        </TableBody>
-      </Table>
-    );
-  };
+          ))
+        ) : (
+          <TableRow>
+            <TableCell colSpan={7} className="text-center text-gray-500">No reports found</TableCell>
+          </TableRow>
+        )}
+      </TableBody>
+    </Table>
+  );
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-white">Moderation & Reports</h1>
-      </div>
-      
-      {/* Stats Overview */}
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold text-white">Moderation & Reports</h1>
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-black/30 backdrop-blur-sm border-white/10 text-white">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Total Reports</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{reports.length}</div>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-black/30 backdrop-blur-sm border-white/10 text-white">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Pending</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-400">{pendingReports.length}</div>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-black/30 backdrop-blur-sm border-white/10 text-white">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Resolved</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-neon-green">{resolvedReports.length}</div>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-black/30 backdrop-blur-sm border-white/10 text-white">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Dismissed</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-400">{dismissedReports.length}</div>
-          </CardContent>
-        </Card>
+        <Card><CardHeader><CardTitle>Total Reports</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{totalCount}</div></CardContent></Card>
+        <Card><CardHeader><CardTitle>Pending</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-amber-400">{pendingReports.length}</div></CardContent></Card>
+        <Card><CardHeader><CardTitle>Resolved</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-neon-green">{resolvedReports.length}</div></CardContent></Card>
+        <Card><CardHeader><CardTitle>Dismissed</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-gray-400">{dismissedReports.length}</div></CardContent></Card>
       </div>
-      
-      {/* Search and Filters */}
-      <Card className="bg-black/30 backdrop-blur-sm border-white/10 text-white">
-        <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-grow">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-              <Input 
-                placeholder="Search reports..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 bg-black/20 border-white/10 text-white placeholder:text-gray-500"
-              />
-            </div>
-            
-            <div className="flex flex-1 md:flex-none flex-wrap gap-2">
-              <Select value={filterReason} onValueChange={setFilterReason}>
-                <SelectTrigger className="w-[180px] bg-black/20 border-white/10 text-white">
-                  <SelectValue placeholder="Filter by reason" />
-                </SelectTrigger>
-                <SelectContent className="bg-black/90 border-white/10 text-white">
-                  <SelectItem value="all" className="hover:bg-white/10 focus:bg-white/10">All Reasons</SelectItem>
-                  {reasons.map(reason => (
-                    <SelectItem 
-                      key={reason} 
-                      value={reason}
-                      className="hover:bg-white/10 focus:bg-white/10"
-                    >
-                      {reason}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+
+      <Card><CardContent>
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="relative flex-grow">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+            <Input placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" />
           </div>
-        </CardContent>
-      </Card>
-      
-      {/* Reports Tabs and Table */}
-      <Card className="bg-black/30 backdrop-blur-sm border-white/10 text-white overflow-hidden">
-        <Tabs defaultValue="pending" className="w-full">
-          <TabsList className="w-full bg-black/30 border-b border-white/10 rounded-none p-0">
-            <TabsTrigger 
-              value="pending" 
-              className="flex-1 rounded-none data-[state=active]:bg-white/10 data-[state=active]:shadow-none data-[state=active]:text-neon-purple"
-            >
-              <Flag className="h-4 w-4 mr-2" />
-              Pending ({pendingReports.length})
-            </TabsTrigger>
-            <TabsTrigger 
-              value="resolved" 
-              className="flex-1 rounded-none data-[state=active]:bg-white/10 data-[state=active]:shadow-none data-[state=active]:text-neon-green"
-            >
-              <ShieldCheck className="h-4 w-4 mr-2" />
-              Resolved ({resolvedReports.length})
-            </TabsTrigger>
-            <TabsTrigger 
-              value="dismissed" 
-              className="flex-1 rounded-none data-[state=active]:bg-white/10 data-[state=active]:shadow-none data-[state=active]:text-gray-400"
-            >
-              <XCircle className="h-4 w-4 mr-2" />
-              Dismissed ({dismissedReports.length})
-            </TabsTrigger>
+          <Select value={filterReason} onValueChange={setFilterReason}>
+            <SelectTrigger><SelectValue placeholder="Filter by Reason" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              {reasons.map((reason) => (<SelectItem key={reason} value={reason}>{reason}</SelectItem>))}
+            </SelectContent>
+          </Select>
+        </div>
+      </CardContent></Card>
+
+      <Card>
+        <Tabs defaultValue="pending">
+          <TabsList>
+            <TabsTrigger value="pending">Pending ({pendingReports.length})</TabsTrigger>
+            <TabsTrigger value="resolved">Resolved ({resolvedReports.length})</TabsTrigger>
+            <TabsTrigger value="dismissed">Dismissed ({dismissedReports.length})</TabsTrigger>
           </TabsList>
-          
-          <div className="rounded-lg overflow-x-auto">
-            <TabsContent value="pending" className="m-0">
-              <ReportTable reports={pendingReports} />
-            </TabsContent>
-            
-            <TabsContent value="resolved" className="m-0">
-              <ReportTable reports={resolvedReports} />
-            </TabsContent>
-            
-            <TabsContent value="dismissed" className="m-0">
-              <ReportTable reports={dismissedReports} />
-            </TabsContent>
-          </div>
+          <TabsContent value="pending"><ReportTable reports={pendingReports} /></TabsContent>
+          <TabsContent value="resolved"><ReportTable reports={resolvedReports} /></TabsContent>
+          <TabsContent value="dismissed"><ReportTable reports={dismissedReports} /></TabsContent>
         </Tabs>
       </Card>
-      
-      {/* AI Moderation Insights (Placeholder) */}
-      <Card className="bg-black/30 backdrop-blur-sm border-white/10 text-white overflow-hidden">
-        <CardHeader className="border-b border-white/10">
-          <CardTitle className="text-lg font-medium flex items-center">
-            <ShieldCheck className="h-5 w-5 mr-2 text-neon-purple" />
-            AI Moderation Insights
-          </CardTitle>
-          <CardDescription className="text-gray-400">
-            Automatically identified potential issues that may need moderation
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="py-6">
-          <div className="flex items-center justify-center h-20 text-gray-400">
-            <p>AI moderation features coming soon</p>
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* Report Details Modal */}
-      <ReportDetailsModal 
-        isOpen={isDetailsModalOpen}
-        onClose={() => setIsDetailsModalOpen(false)}
-        report={selectedReport}
-      />
+      <div className="flex justify-between items-center mt-4">
+        <span className="text-gray-400 text-sm">Page {currentPage} of {Math.ceil(totalCount / pageSize)}</span>
+        <div className="space-x-2">
+          <Button onClick={handlePrevPage} disabled={!prevPage}>Previous</Button>
+          <Button onClick={handleNextPage} disabled={!nextPage}>Next</Button>
+        </div>
+      </div>
+
+      <ReportDetailsModal isOpen={isDetailsModalOpen} onClose={() => setIsDetailsModalOpen(false)} report={selectedReport} />
     </div>
   );
 };
 
 export default ModerationReports;
+

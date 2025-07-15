@@ -53,7 +53,11 @@ import { Textarea } from '../../components/ui/textarea';
 
 const SubscriptionManagement = () => {
     const [subscriptions, setSubscriptions] = useState([]);
+    const [subscriptionsPagination, setSubscriptionsPagination] = useState({ page: 1, count: 0 });
+
     const [subscriptionPlans, setSubscriptionPlans] = useState([]);
+    const [plansPagination, setPlansPagination] = useState({ page: 1, count: 0 });
+
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [planFilter, setPlanFilter] = useState('all');
@@ -68,34 +72,38 @@ const SubscriptionManagement = () => {
     const [loading, setLoading] = useState(false);
 
     // Fetch plans and user subscriptions
-    useEffect(() => {
-        fetchPlans();
-        fetchSubscriptions();
-    }, []);
+useEffect(() => {
+  fetchSubscriptions(1); // reset to page 1 when filters/search change
+  fetchPlans(1);
+}, [searchTerm, statusFilter, planFilter]);
 
-    const fetchPlans = async () => {
-        setLoading(true);
-        try {
-            const res = await adminInstance.get('/subscription/');
-            setSubscriptionPlans(res.data);
-        } catch (err) {
-            toast({ title: 'Error', description: 'Failed to fetch plans', variant: 'destructive' });
-        } finally {
-            setLoading(false);
-        }
+
+    const fetchPlans = async (page = 1) => {
+    setLoading(true);
+    try {
+        const res = await adminInstance.get(`/subscription/?page=${page}`);
+        setSubscriptionPlans(res.data.results);
+        setPlansPagination({ page, count: res.data.count });
+    } catch (err) {
+        toast({ title: 'Error', description: 'Failed to fetch plans', variant: 'destructive' });
+    } finally {
+        setLoading(false);
+    }
     };
 
-    const fetchSubscriptions = async () => {
-        setLoading(true);
-        try {
-            const res = await adminInstance.get('/user-subscriptions/');
-            setSubscriptions(res.data);
-        } catch (err) {
-            toast({ title: 'Error', description: 'Failed to fetch subscriptions', variant: 'destructive' });
-        } finally {
-            setLoading(false);
-        }
+    const fetchSubscriptions = async (page = 1) => {
+    setLoading(true);
+    try {
+        const res = await adminInstance.get(`/user-subscriptions/?page=${page}`);
+        setSubscriptions(res.data.results);
+        setSubscriptionsPagination({ page, count: res.data.count });
+    } catch (err) {
+        toast({ title: 'Error', description: 'Failed to fetch subscriptions', variant: 'destructive' });
+    } finally {
+        setLoading(false);
+    }
     };
+
 
     // KPI calculations
     const totalSubscriptions = subscriptions.length;
@@ -210,6 +218,23 @@ const SubscriptionManagement = () => {
         return plan.features.split(/\r?\n|,/).map(f => f.trim()).filter(Boolean);
     };
 
+    const PaginationControls = ({ page, count, pageSize = 5, onPageChange }) => {
+        const totalPages = Math.ceil(count / pageSize);
+
+        if (totalPages <= 1) return null;
+
+        return (
+            <div className="flex justify-end items-center gap-2 mt-4">
+            <Button variant="ghost" disabled={page === 1} onClick={() => onPageChange(page - 1)}>Previous</Button>
+            <span className="text-white">
+                Page {page} of {totalPages}
+            </span>
+            <Button variant="ghost" disabled={page === totalPages} onClick={() => onPageChange(page + 1)}>Next</Button>
+            </div>
+        );
+        };
+
+
     return (
         <div className="space-y-6 p-6 pb-16">
             <div className="flex flex-col gap-2">
@@ -258,7 +283,7 @@ const SubscriptionManagement = () => {
                         <DollarSign className="h-4 w-4 text-neon-green" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-white">${estimatedRevenue.toFixed(2)}</div>
+                        <div className="text-2xl font-bold text-white">₹{estimatedRevenue.toFixed(2)}</div>
                         <p className="text-xs text-muted-foreground">From active subscriptions</p>
                     </CardContent>
                 </Card>
@@ -405,6 +430,11 @@ const SubscriptionManagement = () => {
                                 ))}
                             </TableBody>
                         </Table>
+                                <PaginationControls
+                    page={plansPagination.page}
+                    count={plansPagination.count}
+                    onPageChange={(newPage) => fetchPlans(newPage)}
+                    />
                     </div>
 
                     {/* Edit Plan Modal */}
@@ -484,6 +514,8 @@ const SubscriptionManagement = () => {
                         </DialogContent>
                     </Dialog>
                 </TabsContent>
+        
+
 
                 {/* User Subscriptions Tab */}
                 <TabsContent value="users" className="space-y-4">
@@ -616,6 +648,12 @@ const SubscriptionManagement = () => {
                                 )}
                             </TableBody>
                         </Table>
+                        <PaginationControls
+                        page={subscriptionsPagination.page}
+                        count={subscriptionsPagination.count}
+                        onPageChange={(newPage) => fetchSubscriptions(newPage)}
+                        />
+
                     </div>
                 </TabsContent>
             </Tabs>

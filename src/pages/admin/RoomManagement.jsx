@@ -1,18 +1,18 @@
-import React, { useState,useEffect} from 'react';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import React, { useState, useEffect } from 'react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from "../../components/ui/table";
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
 } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -30,12 +30,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
-import { 
-  Search, 
-  Filter, 
-  MoreHorizontal, 
+import {
+  Search,
+  Filter,
+  MoreHorizontal,
   Edit,
-  Trash2, 
+  Trash2,
   MessageSquare,
   Eye
 } from 'lucide-react';
@@ -51,7 +51,7 @@ const RoomManagement = () => {
   const [filterLanguage, setFilterLanguage] = useState('all');
   const [filterType, setFilterType] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
-  
+
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -59,37 +59,64 @@ const RoomManagement = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
 
-  
+
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [nextPage, setNextPage] = useState(null);
+  const [prevPage, setPrevPage] = useState(null);
+  const [totalCount, setTotalCount] = useState(0);
+  const pageSize = 5;
 
-   // Fetch all rooms on mount
+  // Fetch rooms from backend with filters, search, and pagination
+  const fetchRooms = async (page = 1) => {
+    setLoading(true);
+    try {
+      const params = {
+        page,
+        page_size: pageSize,
+      };
+      if (searchTerm) params.search = searchTerm;
+      if (filterLanguage && filterLanguage !== 'all') params.language = filterLanguage;
+      if (filterType && filterType !== 'all') params.type = filterType;
+      if (filterStatus && filterStatus !== 'all') params.status = filterStatus;
+      const res = await adminInstance.get('/rooms/', { params });
+      setRooms(res.data.results);
+      setNextPage(res.data.next);
+      setPrevPage(res.data.previous);
+      setTotalCount(res.data.count);
+      setCurrentPage(page);
+    } catch (err) {
+      setRooms([]);
+      setNextPage(null);
+      setPrevPage(null);
+      setTotalCount(0);
+      setCurrentPage(1);
+      console.log("Error on Fetching room list", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial load
   useEffect(() => {
-    const fetchRooms = async () => {
-      setLoading(true);
-      try {
-        const res = await adminInstance.get('/rooms/');
-        setRooms(res.data);
-      } catch (err) {
-        console.log("Error on Fetching room list",err)
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchRooms();
+    fetchRooms(1);
+    // eslint-disable-next-line
   }, []);
 
-  const filteredRooms = rooms.filter(room => {
-    const matchesSearch = room.title.toLowerCase().includes(searchTerm.toLowerCase()) || room.creator.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesLanguage = filterLanguage === 'all' || room.language === filterLanguage;
-    const matchesType = filterType === 'all' || room.type === filterType;
-    const matchesStatus = filterStatus === 'all' || room.status === filterStatus;
-    return matchesSearch && matchesLanguage && matchesType && matchesStatus;
-  });
+  // Refetch on filter/search change
+  useEffect(() => {
+    fetchRooms(1);
+    // eslint-disable-next-line
+  }, [searchTerm, filterLanguage, filterType, filterStatus]);
 
-  const languages = Array.from(new Set(rooms.map(room => room.language)));
-  const types = Array.from(new Set(rooms.map(room => room.type)));
-  const statuses = Array.from(new Set(rooms.map(room => room.status)));
+  // Pagination handlers
+  const handlePrevPage = () => {
+    if (prevPage && currentPage > 1) fetchRooms(currentPage - 1);
+  };
+  const handleNextPage = () => {
+    if (nextPage) fetchRooms(currentPage + 1);
+  };
 
   // Fetch full room details for modal
   const handleViewRoom = async (room) => {
@@ -99,7 +126,7 @@ const RoomManagement = () => {
       setSelectedRoom(res.data);
     } catch (err) {
       setIsDetailsModalOpen(false);
-      console.log("Error fetching room details:",err)
+      console.log("Error fetching room details:", err)
       // Optionally show toast
     }
   };
@@ -115,10 +142,10 @@ const RoomManagement = () => {
       // Fetch the updated room data from the server
       const res = await adminInstance.get(`/rooms/${updatedRoomId}/`);
       const updatedRoom = res.data;
-      
+
       // Update the rooms state with the new data
-      setRooms(prevRooms => 
-        prevRooms.map(room => 
+      setRooms(prevRooms =>
+        prevRooms.map(room =>
           room.id === updatedRoom.id ? updatedRoom : room
         )
       );
@@ -144,21 +171,25 @@ const RoomManagement = () => {
         await adminInstance.delete(`/rooms/${selectedRoom.id}/`);
         setRooms(rooms.filter(room => room.id !== selectedRoom.id));
         toast({
-              title: "Room Deleted",
-              description: "Room Deleted Successfully.",
-              variant: "success", 
+          title: "Room Deleted",
+          description: "Room Deleted Successfully.",
+          variant: "success",
         });
       } catch (err) {
-        console.log("Error Deleting Room",err);
-         toast({
-              title: "Error on Room Deletion",
-              description: "Backend Error on Room Deletion.",
-              variant: "destructive", 
+        console.log("Error Deleting Room", err);
+        toast({
+          title: "Error on Room Deletion",
+          description: "Backend Error on Room Deletion.",
+          variant: "destructive",
         });
       }
       setIsDeleteModalOpen(false);
     }
   };
+
+  const languages = Array.from(new Set(rooms.map(room => room.language)));
+  const types = Array.from(new Set(rooms.map(room => room.type)));
+  const statuses = Array.from(new Set(rooms.map(room => room.status)));
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -176,7 +207,7 @@ const RoomManagement = () => {
             <CardTitle className="text-sm font-medium text-gray-400">Total Rooms</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{rooms.length}</div>
+            <div className="text-2xl font-bold">{totalCount}</div>
           </CardContent>
         </Card>
 
@@ -208,14 +239,14 @@ const RoomManagement = () => {
         </Card>
       </div>
 
-            {/* Search and Filters */}
+      {/* Search and Filters */}
       <Card className="bg-black/30 backdrop-blur-sm border-white/10 text-white">
         <CardContent className="p-4">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-grow">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-              <Input 
-                placeholder="Search rooms by title or creator..." 
+              <Input
+                placeholder="Search rooms by title or creator..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9 bg-black/20 border-white/10 text-white placeholder:text-gray-500"
@@ -285,97 +316,108 @@ const RoomManagement = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-                {filteredRooms.length > 0 ? (
-                filteredRooms.map((room) => (
-                    <TableRow key={room.id} className="border-b border-white/5 hover:bg-white/5">
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-24 text-center text-gray-500">Loading rooms...</TableCell>
+                </TableRow>
+              ) : rooms.length > 0 ? (
+                rooms.map((room) => (
+                  <TableRow key={room.id} className="border-b border-white/5 hover:bg-white/5">
                     <TableCell className="font-medium text-white">{room.title}</TableCell>
                     <TableCell>{room.creator}</TableCell>
                     <TableCell>
-                        <Badge className="bg-white/10 text-white hover:bg-white/20">
+                      <Badge className="bg-white/10 text-white hover:bg-white/20">
                         {room.type.charAt(0).toUpperCase() + room.type.slice(1)}
-                        </Badge>
+                      </Badge>
                     </TableCell>
                     <TableCell>{room.language}</TableCell>
                     <TableCell>{room.activeUsers}</TableCell>
                     <TableCell>
-                        <Badge className={`${
-                        room.status === 'active' 
-                            ? 'bg-neon-green/20 text-neon-green hover:bg-neon-green/30' 
-                            : 'bg-gray-500/20 text-gray-400 hover:bg-gray-500/30'
+                      <Badge className={`${room.status === 'active'
+                          ? 'bg-neon-green/20 text-neon-green hover:bg-neon-green/30'
+                          : 'bg-gray-500/20 text-gray-400 hover:bg-gray-500/30'
                         }`}>
                         {room.status.charAt(0).toUpperCase() + room.status.slice(1)}
-                        </Badge>
+                      </Badge>
                     </TableCell>
                     <TableCell>
-                        <div className="flex space-x-1">
-                        <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-white/10"
-                            onClick={() => handleViewRoom(room)}
+                      <div className="flex space-x-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-white/10"
+                          onClick={() => handleViewRoom(room)}
                         >
-                            <Eye className="h-4 w-4" />
+                          <Eye className="h-4 w-4" />
                         </Button>
-                        <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-white/10"
-                            onClick={() => handleEditRoom(room)}
+                        {/* <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-white/10"
+                          onClick={() => handleEditRoom(room)}
                         >
-                            <Edit className="h-4 w-4" />
+                          <Edit className="h-4 w-4" />
                         </Button>
-                        <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-white/10"
-                            onClick={() => handleModerateRoom(room)}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-white/10"
+                          onClick={() => handleModerateRoom(room)}
                         >
-                            <MessageSquare className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 p-0 text-gray-400 hover:text-red-400 hover:bg-white/10"
-                            onClick={() => handleDeleteRoom(room)}
+                          <MessageSquare className="h-4 w-4" />
+                        </Button> */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 p-0 text-gray-400 hover:text-red-400 hover:bg-white/10"
+                          onClick={() => handleDeleteRoom(room)}
                         >
-                            <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
-                        </div>
+                      </div>
                     </TableCell>
-                    </TableRow>
+                  </TableRow>
                 ))
-                ) : (
+              ) : (
                 <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center text-gray-500">
+                  <TableCell colSpan={7} className="h-24 text-center text-gray-500">
                     No rooms match your search criteria
-                    </TableCell>
+                  </TableCell>
                 </TableRow>
-                )}
+              )}
             </TableBody>
           </Table>
         </div>
       </Card>
+        {/* Pagination controls */}
+              <div className="flex justify-between items-center mt-4">
+                <span className="text-gray-400 text-sm">Page {currentPage} of {Math.ceil(totalCount / pageSize)}</span>
+                <div className="space-x-2">
+                  <Button onClick={handlePrevPage} disabled={!prevPage}>Previous</Button>
+                  <Button onClick={handleNextPage} disabled={!nextPage}>Next</Button>
+                </div>
+              </div>
 
       {/* Modals */}
-      <RoomDetailsModal 
-        isOpen={isDetailsModalOpen} 
-        onClose={() => setIsDetailsModalOpen(false)} 
-        room={selectedRoom} 
+      <RoomDetailsModal
+        isOpen={isDetailsModalOpen}
+        onClose={() => setIsDetailsModalOpen(false)}
+        room={selectedRoom}
       />
-      <EditRoomModal 
-        isOpen={isEditModalOpen} 
-        onClose={() => setIsEditModalOpen(false)} 
+      <EditRoomModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
         room={selectedRoom}
         onRoomUpdated={handleRoomUpdated}
-        />
-      <ModerationToolsModal 
-        isOpen={isModerationModalOpen} 
-        onClose={() => setIsModerationModalOpen(false)} 
-        room={selectedRoom} 
       />
-      <DeleteConfirmationModal 
-        isOpen={isDeleteModalOpen} 
-        onClose={() => setIsDeleteModalOpen(false)} 
+      <ModerationToolsModal
+        isOpen={isModerationModalOpen}
+        onClose={() => setIsModerationModalOpen(false)}
+        room={selectedRoom}
+      />
+      <DeleteConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={confirmDeleteRoom}
         title="Delete Room"
         description={`Are you sure you want to delete "${selectedRoom?.title}"? This action cannot be undone.`}

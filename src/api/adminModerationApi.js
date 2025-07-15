@@ -1,8 +1,8 @@
 import adminInstance from '../features/auth/adminInstance';
 
 const adminModerationApi = {
-  fetchReports: async () => {
-    const res = await adminInstance.get('/reports/');
+  fetchReports: async (params) => {
+    const res = await adminInstance.get('/reports/',{params});
     return res.data;
   },
   updateReportStatus: async (reportId, status) => {

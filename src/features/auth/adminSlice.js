@@ -17,9 +17,9 @@ export const adminLogin = createAsyncThunk(
 // Fetch Users Thunk
 export const fetchUsers = createAsyncThunk(
   'admin/fetchUsers',
-  async (_, { rejectWithValue }) => {
+  async (params = {}, { rejectWithValue }) => {
     try {
-      const response = await adminInstance.get('/users/');
+      const response = await adminInstance.get('/users/', {params});
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.detail || 'Fetching users failed');

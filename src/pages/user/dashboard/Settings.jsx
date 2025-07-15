@@ -158,105 +158,6 @@ const Settings = () => {
       
       <div className="space-y-6">
         <Accordion type="single" collapsible className="w-full" defaultValue="account">
-          <AccordionItem value="account" className="border-white/10">
-            <AccordionTrigger className="text-xl font-semibold text-white py-4 hover:no-underline">
-              Account Settings
-            </AccordionTrigger>
-            <AccordionContent className="pt-4">
-              <div className="space-y-6">
-                <Card className="bg-[#1A0E29]/60 border-white/10 backdrop-blur-md shadow-lg">
-                  <CardHeader>
-                    <CardTitle className="text-white flex items-center">
-                      <Shield className="mr-2 h-5 w-5 text-neon-purple" />
-                      Change Password
-                    </CardTitle>
-                    <CardDescription className="text-white/70">
-                      Update your password
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <form onSubmit={handleChangePassword} className="space-y-4">
-                      <div>
-                        <label htmlFor="current-password" className="block text-white/80 mb-2 text-sm">
-                          Current Password
-                        </label>
-                        <Input
-                          id="current-password"
-                          type="password"
-                          value={currentPassword}
-                          onChange={(e) => setCurrentPassword(e.target.value)}
-                          placeholder="Enter current password"
-                          className="bg-white/5 border-white/20 text-white"
-                          disabled={passwordLoading}
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="new-password" className="block text-white/80 mb-2 text-sm">
-                          New Password
-                        </label>
-                        <Input
-                          id="new-password"
-                          type="password"
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          placeholder="Enter new password"
-                          className="bg-white/5 border-white/20 text-white"
-                          disabled={passwordLoading}
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="confirm-password" className="block text-white/80 mb-2 text-sm">
-                          Confirm New Password
-                        </label>
-                        <Input
-                          id="confirm-password"
-                          type="password"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          placeholder="Confirm new password"
-                          className="bg-white/5 border-white/20 text-white"
-                          disabled={passwordLoading}
-                        />
-                      </div>
-                      <Button 
-                        type="submit" 
-                        variant="gradient" 
-                        disabled={passwordLoading}
-                        className="flex items-center"
-                      >
-                        {passwordLoading && <Loader className="animate-spin mr-2 h-4 w-4" />}
-                        Update Password
-                      </Button>
-                    </form>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-[#1A0E29]/60 border-white/10 backdrop-blur-md shadow-lg">
-                  <CardHeader>
-                    <CardTitle className="text-white flex items-center">
-                      <Trash2 className="mr-2 h-5 w-5 text-red-400" />
-                      Delete Account
-                    </CardTitle>
-                    <CardDescription className="text-white/70">
-                      Permanently delete your account and all data
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-white/80 mb-4">
-                      This action cannot be undone. It will permanently delete your account, profile, and all data associated with it.
-                    </p>
-                    <Button 
-                      variant="outline" 
-                      className="bg-transparent border-red-400 text-red-400 hover:bg-red-400/10"
-                      onClick={handleDeleteAccount}
-                    >
-                      Delete My Account
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
-            </AccordionContent>
-          </AccordionItem>
 
           <AccordionItem value="preferences" className="border-white/10">
             <AccordionTrigger className="text-xl font-semibold text-white py-4 hover:no-underline">
@@ -393,6 +294,110 @@ const Settings = () => {
                   </div>
                 </CardContent>
               </Card>
+            </AccordionContent>
+          </AccordionItem>
+          
+          <AccordionItem value="account" className="border-white/10">
+            <AccordionTrigger className="text-xl font-semibold text-white py-4 hover:no-underline">
+              Account Settings
+            </AccordionTrigger>
+            <AccordionContent className="pt-4">
+              <div className="space-y-6">
+                {!settings.is_google_login && (
+
+                <Card className="bg-[#1A0E29]/60 border-white/10 backdrop-blur-md shadow-lg">
+                  <CardHeader>
+                    <CardTitle className="text-white flex items-center">
+                      <Shield className="mr-2 h-5 w-5 text-neon-purple" />
+                      Change Password
+                    </CardTitle>
+                    <CardDescription className="text-white/70">
+                      Update your password
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleChangePassword} className="space-y-4">
+                      <div>
+                        <label htmlFor="current-password" className="block text-white/80 mb-2 text-sm">
+                          Current Password
+                        </label>
+                        <Input
+                          id="current-password"
+                          type="password"
+                          value={currentPassword}
+                          onChange={(e) => setCurrentPassword(e.target.value)}
+                          placeholder="Enter current password"
+                          className="bg-white/5 border-white/20 text-white"
+                          disabled={passwordLoading}
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="new-password" className="block text-white/80 mb-2 text-sm">
+                          New Password
+                        </label>
+                        <Input
+                          id="new-password"
+                          type="password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="Enter new password"
+                          className="bg-white/5 border-white/20 text-white"
+                          disabled={passwordLoading}
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="confirm-password" className="block text-white/80 mb-2 text-sm">
+                          Confirm New Password
+                        </label>
+                        <Input
+                          id="confirm-password"
+                          type="password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="Confirm new password"
+                          className="bg-white/5 border-white/20 text-white"
+                          disabled={passwordLoading}
+                        />
+                      </div>
+                      <Button 
+                        type="submit" 
+                        variant="gradient" 
+                        disabled={passwordLoading}
+                        className="flex items-center"
+                      >
+                        {passwordLoading && <Loader className="animate-spin mr-2 h-4 w-4" />}
+                        Update Password
+                      </Button>
+                    </form>
+                  </CardContent>
+                </Card>
+                )}
+            
+
+                <Card className="bg-[#1A0E29]/60 border-white/10 backdrop-blur-md shadow-lg">
+                  <CardHeader>
+                    <CardTitle className="text-white flex items-center">
+                      <Trash2 className="mr-2 h-5 w-5 text-red-400" />
+                      Delete Account
+                    </CardTitle>
+                    <CardDescription className="text-white/70">
+                      Permanently delete your account and all data
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-white/80 mb-4">
+                      This action cannot be undone. It will permanently delete your account, profile, and all data associated with it.
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      className="bg-transparent border-red-400 text-red-400 hover:bg-red-400/10"
+                      onClick={handleDeleteAccount}
+                    >
+                      Delete My Account
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
             </AccordionContent>
           </AccordionItem>
         </Accordion>
