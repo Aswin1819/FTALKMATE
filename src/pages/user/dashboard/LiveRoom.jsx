@@ -499,8 +499,8 @@ const LiveRoom = () => {
       if (participant.user_id === currentUser.id) continue;
       const existingConnection = peerConnectionsRef.current[participant.user_id];
       if (existingConnection &&
-          existingConnection.connectionState === 'connected' &&
-          existingConnection.signalingState === 'stable') {
+        existingConnection.connectionState === 'connected' &&
+        existingConnection.signalingState === 'stable') {
         console.log(`Connection to user ${participant.user_id} already stable`);
         continue;
       }
@@ -657,6 +657,7 @@ const LiveRoom = () => {
               : p
           )
         );
+        console.log("Inside hand_raised websocket message")
         break;
 
       case 'webrtc_offer':
@@ -888,7 +889,12 @@ const LiveRoom = () => {
     return (
       <div className="w-full h-full bg-gradient-to-br from-black/80 to-black/40 flex items-center justify-center">
         <Avatar className="h-20 w-20 border-2 border-white/10">
-          <AvatarImage src={`https://i.pravatar.cc/150?u=${participant.user_id}`} />
+          <AvatarImage src={participant.avatar}
+            loading="eager"
+            referrerPolicy="no-referrer"
+            crossOrigin="anonymous"
+            onError={() => console.log('avatar error')}
+            onLoad={() => console.log('avatar loaded')} />
           <AvatarFallback>
             {participant.username?.[0]?.toUpperCase()}
           </AvatarFallback>
@@ -920,6 +926,7 @@ const LiveRoom = () => {
       console.log(`User ${userId}: ${stream ? `${stream.getTracks().length} tracks` : 'no stream'}`);
     });
   }, [currentUser, participants]);
+
 
   // Initialize on mount
   useEffect(() => {
@@ -1119,6 +1126,7 @@ const LiveRoom = () => {
     }
   }, [isMuted, videoEnabled, mediaReady]);
 
+
   // Error boundary for WebRTC operations
   const handleWebRTCError = useCallback((error, userId, operation) => {
     console.error(`WebRTC ${operation} error for user ${userId}:`, error);
@@ -1149,26 +1157,26 @@ const LiveRoom = () => {
   }, [currentUser, initiateWebRTCConnection]);
 
   // Handler to open modal
-const handleOpenReport = (user) => {
-  setReportTarget(user);
-  setReportReason("");
-  setReportDialogOpen(true);
-};
+  const handleOpenReport = (user) => {
+    setReportTarget(user);
+    setReportReason("");
+    setReportDialogOpen(true);
+  };
 
-// Handler to submit report
-const handleSubmitReport = async () => {
-  if (!reportReason.trim()) {
-    toast({ title: "Reason required", description: "Please enter a reason.", variant: "destructive" });
-    return;
-  }
-  try {
-    await roomApi.reportUser(room.id, reportTarget.user_id, reportReason);
-    toast({ title: "Reported", description: "User has been reported.", variant: "default" });
-    setReportDialogOpen(false);
-  } catch (err) {
-    toast({ title: "Error", description: "Failed to report user.", variant: "destructive" });
-  }
-};
+  // Handler to submit report
+  const handleSubmitReport = async () => {
+    if (!reportReason.trim()) {
+      toast({ title: "Reason required", description: "Please enter a reason.", variant: "destructive" });
+      return;
+    }
+    try {
+      await roomApi.reportUser(room.id, reportTarget.user_id, reportReason);
+      toast({ title: "Reported", description: "User has been reported.", variant: "default" });
+      setReportDialogOpen(false);
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to report user.", variant: "destructive" });
+    }
+  };
 
   // Loading and error states
   if (loading) {
@@ -1231,7 +1239,12 @@ const handleSubmitReport = async () => {
                 transition={{ delay: index * 0.1 }}
               >
                 <Avatar className="h-10 w-10 border-3 border-white/20 hover:border-purple-400 transition-all duration-300 hover:scale-110">
-                  <AvatarImage src={`https://i.pravatar.cc/150?u=${participant.user_id}`} />
+                  <AvatarImage src={participant.avatar}
+                    loading="eager"
+                    referrerPolicy="no-referrer"
+                    crossOrigin='anonymous'
+                    onError={() => console.log('avatar error')}
+                    onLoad={() => console.log('avatar loaded')} />
                   <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-500 text-white font-semibold">
                     {participant.username?.[0]?.toUpperCase()}
                   </AvatarFallback>
@@ -1292,170 +1305,173 @@ const handleSubmitReport = async () => {
       <div className="flex-1 flex relative overflow-hidden">
         {/* Participants Grid/Audio View */}
         <div className="flex-1 p-6 overflow-y-auto relative z-10">
-        {isVideoMode ? (
-          /* Video Grid Layout */
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 h-full">
-            {participants.map((participant, index) => (
-              <motion.div
-                key={participant.user_id}
-                className="relative rounded-2xl overflow-hidden group hover:scale-[1.02] transition-all duration-300"
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: index * 0.1 }}
-                style={{
-                  background: 'linear-gradient(135deg, rgba(139, 69, 19, 0.3) 0%, rgba(0, 0, 0, 0.8) 100%)'
-                }}
-              >
-                {/* Video Content */}
-                <div className="aspect-video bg-gradient-to-br from-purple-900/50 to-black/80 relative overflow-hidden">
-                  {participant.user_id === currentUser?.id ? (
-                    <video
-                      ref={localVideoRef}
-                      autoPlay
-                      muted
-                      playsInline
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    renderRemoteVideo(participant)
-                  )}
+          {isVideoMode ? (
+            /* Video Grid Layout */
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 h-full">
+              {participants.map((participant, index) => (
+                <motion.div
+                  key={participant.user_id}
+                  className="relative rounded-2xl overflow-hidden group hover:scale-[1.02] transition-all duration-300"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: index * 0.1 }}
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(139, 69, 19, 0.3) 0%, rgba(0, 0, 0, 0.8) 100%)'
+                  }}
+                >
+                  {/* Video Content */}
+                  <div className="aspect-video bg-gradient-to-br from-purple-900/50 to-black/80 relative overflow-hidden">
+                    {participant.user_id === currentUser?.id ? (
+                      <video
+                        ref={localVideoRef}
+                        autoPlay
+                        muted
+                        playsInline
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      renderRemoteVideo(participant)
+                    )}
 
-                  {/* Video Overlay Effects */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+                    {/* Video Overlay Effects */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
 
-                  {/* Participant Info Overlay */}
-                  <div className="absolute bottom-0 left-0 right-0 p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <div className="px-2 py-1 bg-black/60 rounded-lg backdrop-blur-sm">
-                          <span className="text-white font-semibold text-sm">
-                            {participant.user_id === currentUser?.id ? 'You' : participant.username}
-                          </span>
+                    {/* Participant Info Overlay */}
+                    <div className="absolute bottom-0 left-0 right-0 p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <div className="px-2 py-1 bg-black/60 rounded-lg backdrop-blur-sm">
+                            <span className="text-white font-semibold text-sm">
+                              {participant.user_id === currentUser?.id ? 'You' : participant.username}
+                            </span>
+                          </div>
+                          {participant.role === 'host' && (
+                            <div className="px-2 py-1 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg">
+                              <span className="text-white text-xs font-bold">HOST</span>
+                            </div>
+                          )}
                         </div>
-                        {participant.role === 'host' && (
-                          <div className="px-2 py-1 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg">
-                            <span className="text-white text-xs font-bold">HOST</span>
-                          </div>
-                        )}
-                      </div>
 
-                      <div className="flex items-center space-x-1">
-                        {participant.is_muted && (
-                          <div className="p-1 bg-red-500/80 rounded-full">
-                            <MicOff className="h-3 w-3 text-white" />
-                          </div>
-                        )}
-                        {participant.hand_raised && (
-                          <motion.div
-                            className="p-1 bg-yellow-500/80 rounded-full"
-                            animate={{ rotate: [0, -10, 10, -10, 0] }}
-                            transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
-                          >
-                            <HandMetal className="h-3 w-3 text-white" />
-                          </motion.div>
-                        )}
-                        {!participant.video_enabled && (
-                          <div className="p-1 bg-gray-500/80 rounded-full">
-                            <VideoOff className="h-3 w-3 text-white" />
-                          </div>
-                        )}
+                        <div className="flex items-center space-x-1">
+                          {participant.is_muted && (
+                            <div className="p-1 bg-red-500/80 rounded-full">
+                              <MicOff className="h-3 w-3 text-white" />
+                            </div>
+                          )}
+                          {participant.hand_raised && (
+                            <motion.div
+                              className="p-1 bg-yellow-500/80 rounded-full"
+                              animate={{ rotate: [0, -10, 10, -10, 0] }}
+                              transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
+                            >
+                              <HandMetal className="h-3 w-3 text-white" />
+                            </motion.div>
+                          )}
+                          {!participant.video_enabled && (
+                            <div className="p-1 bg-gray-500/80 rounded-full">
+                              <VideoOff className="h-3 w-3 text-white" />
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        ) : (
-          /* Audio-Only Flexbox Layout */
-          <div className="flex flex-wrap gap-6 items-center justify-center py-6">
-            {participants.map((participant) => (
-              <motion.div
-                key={participant.user_id}
-                className="relative group"
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ type: "spring", stiffness: 200 }}
-              >
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <div>
-                      <Avatar className="h-20 w-20 border-2 border-white/10 shadow-lg transition-all duration-300 group-hover:scale-105">
-                        <AvatarImage src={`https://i.pravatar.cc/150?u=${participant.user_id}`} />
-                        <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-500 text-white font-semibold">
-                          {participant.username?.[0]?.toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            /* Audio-Only Flexbox Layout */
+            <div className="flex flex-wrap gap-6 items-center justify-center py-6">
+              {participants.map((participant) => (
+                <motion.div
+                  key={participant.user_id}
+                  className="relative group"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ type: "spring", stiffness: 200 }}
+                >
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <div>
+                        <Avatar className="h-20 w-20 border-2 border-white/10 shadow-lg transition-all duration-300 group-hover:scale-105">
+                          <AvatarImage src={participant.avatar}
+                            loading="eager"
+                            referrerPolicy="no-referrer"
+                            onLoad={() => console.log('avatar loaded')} />
+                          <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-500 text-white font-semibold">
+                            {participant.username?.[0]?.toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
 
-                      {/* Audio Visualizer Ring for current user */}
-                      {participant.user_id === currentUser?.id && (
-                        <motion.div
-                          className="absolute inset-0 rounded-full border-2 border-purple-400"
-                          animate={{
-                            scale: isMuted ? 1 : [1, 1.1, 1],
-                            opacity: isMuted ? 0.3 : [0.3, 0.8, 0.3]
-                          }}
-                          transition={{ duration: 1, repeat: Infinity }}
-                        />
-                      )}
-
-                      {/* Speaking Animation for other participants */}
-                      {participant.user_id !== currentUser?.id && !participant.is_muted && (
-                        <motion.div
-                          className="absolute inset-0 rounded-full border-2 border-green-400"
-                          animate={{
-                            scale: [1, 1.2, 1],
-                            opacity: [0.3, 0.8, 0.3]
-                          }}
-                          transition={{ duration: 1.5, repeat: Infinity }}
-                        />
-                      )}
-
-                      {/* Status Indicators */}
-                      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex space-x-1">
-                        {participant.is_muted && (
-                          <div className="h-6 w-6 bg-red-500 rounded-full flex items-center justify-center">
-                            <MicOff className="h-3 w-3 text-white" />
-                          </div>
-                        )}
-                        {participant.hand_raised && (
+                        {/* Audio Visualizer Ring for current user */}
+                        {participant.user_id === currentUser?.id && (
                           <motion.div
-                            className="h-6 w-6 bg-yellow-500 rounded-full flex items-center justify-center"
-                            animate={{ rotate: [0, -10, 10, -10, 0] }}
-                            transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
-                          >
-                            <HandMetal className="h-3 w-3 text-white" />
-                          </motion.div>
+                            className="absolute inset-0 rounded-full border-2 border-purple-400"
+                            animate={{
+                              scale: isMuted ? 1 : [1, 1.1, 1],
+                              opacity: isMuted ? 0.3 : [0.3, 0.8, 0.3]
+                            }}
+                            transition={{ duration: 1, repeat: Infinity }}
+                          />
                         )}
-                      </div>
 
-                      {/* Username and role */}
-                      <div className="mt-2 text-center">
-                        <span className="text-white font-semibold text-sm">
-                          {participant.user_id === currentUser?.id ? "You" : participant.username}
-                        </span>
-                        {participant.role === "host" && (
-                          <span className="ml-2 px-2 py-1 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg text-white text-xs font-bold">
-                            HOST
-                          </span>
+                        {/* Speaking Animation for other participants */}
+                        {participant.user_id !== currentUser?.id && !participant.is_muted && (
+                          <motion.div
+                            className="absolute inset-0 rounded-full border-2 border-green-400"
+                            animate={{
+                              scale: [1, 1.2, 1],
+                              opacity: [0.3, 0.8, 0.3]
+                            }}
+                            transition={{ duration: 1.5, repeat: Infinity }}
+                          />
                         )}
+
+                        {/* Status Indicators */}
+                        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex space-x-1">
+                          {participant.is_muted && (
+                            <div className="h-6 w-6 bg-red-500 rounded-full flex items-center justify-center">
+                              <MicOff className="h-3 w-3 text-white" />
+                            </div>
+                          )}
+                          {participant.hand_raised && (
+                            <motion.div
+                              className="h-6 w-6 bg-yellow-500 rounded-full flex items-center justify-center"
+                              animate={{ rotate: [0, -10, 10, -10, 0] }}
+                              transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
+                            >
+                              <HandMetal className="h-3 w-3 text-white" />
+                            </motion.div>
+                          )}
+                        </div>
+
+                        {/* Username and role */}
+                        <div className="mt-2 text-center">
+                          <span className="text-white font-semibold text-sm">
+                            {participant.user_id === currentUser?.id ? "You" : participant.username}
+                          </span>
+                          {participant.role === "host" && (
+                            <span className="ml-2 px-2 py-1 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg text-white text-xs font-bold">
+                              HOST
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </DropdownMenuTrigger>
-                  {/* Only show dropdown for others */}
-                  {participant.user_id !== currentUser?.id && (
-                    <DropdownMenuContent className="z-50">
-                      <DropdownMenuItem onClick={() => handleOpenReport(participant)}>
-                        Report
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  )}
-                </DropdownMenu>
-              </motion.div>
-            ))}
-          </div>
-        )}
-      </div>
+                    </DropdownMenuTrigger>
+                    {/* Only show dropdown for others */}
+                    {participant.user_id !== currentUser?.id && (
+                      <DropdownMenuContent className="z-50">
+                        <DropdownMenuItem onClick={() => handleOpenReport(participant)}>
+                          Report
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    )}
+                  </DropdownMenu>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Enhanced Chat Panel */}
         <AnimatePresence>
@@ -1501,7 +1517,11 @@ const handleSubmitReport = async () => {
                     >
                       {message.user !== currentUser?.id && (
                         <Avatar className="h-8 w-8 mr-2 mt-1 flex-shrink-0">
-                          <AvatarImage src={`https://i.pravatar.cc/150?u=${message.user}`} />
+                          <AvatarImage src={message.avatar}
+                            loading="eager"
+                            referrerPolicy="no-referrer"
+                            onLoad={() => console.log('avatar loaded')}
+                          />
                           <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-500">
                             {message.username?.[0]?.toUpperCase()}
                           </AvatarFallback>
@@ -1528,7 +1548,10 @@ const handleSubmitReport = async () => {
 
                       {message.user === currentUser?.id && (
                         <Avatar className="h-8 w-8 ml-2 mt-1 flex-shrink-0">
-                          <AvatarImage src={`https://i.pravatar.cc/150?u=${message.user}`} />
+                          <AvatarImage src={message.avatar}
+                            loading="eager"
+                            referrerPolicy="no-referrer"
+                            onLoad={() => console.log('avatar loaded')} />
                           <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-500">
                             {currentUser.username?.[0]?.toUpperCase()}
                           </AvatarFallback>
@@ -1681,7 +1704,7 @@ const handleSubmitReport = async () => {
           </div>
 
           {/* Leave Room */}
-          <Button
+          {/* <Button
             variant="ghost"
             size="sm"
             onClick={handleLeaveRoom}
@@ -1689,7 +1712,7 @@ const handleSubmitReport = async () => {
           >
             <PhoneOff className="h-4 w-4 mr-2" />
             End Call
-          </Button>
+          </Button> */}
         </div>
       </motion.div>
 
@@ -1733,7 +1756,10 @@ const handleSubmitReport = async () => {
                   >
                     {message.user !== currentUser?.id && (
                       <Avatar className="h-8 w-8 mr-3 mt-1 ring-2 ring-purple-400/20">
-                        <AvatarImage src={`https://i.pravatar.cc/150?u=${message.user}`} />
+                        <AvatarImage src={message.avatar}
+                          loading="eager"
+                          referrerPolicy="no-referrer"
+                          onLoad={() => console.log('avatar loaded')} />
                         <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-500 text-white text-xs">
                           {message.username?.[0]?.toUpperCase()}
                         </AvatarFallback>
@@ -1766,7 +1792,9 @@ const handleSubmitReport = async () => {
 
                     {message.user === currentUser?.id && (
                       <Avatar className="h-8 w-8 ml-3 mt-1 ring-2 ring-purple-400/20">
-                        <AvatarImage src={`https://i.pravatar.cc/150?u=${message.user}`} />
+                        <AvatarImage src={message.avatar}
+                          loading="eager"
+                          referrerPolicy="no-referrer" />
                         <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-500 text-white text-xs">
                           {currentUser.username?.[0]?.toUpperCase()}
                         </AvatarFallback>
@@ -1833,6 +1861,22 @@ const handleSubmitReport = async () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Hidden audio elements for remote participants */}
+      {participants.map(p => (
+        p.user_id !== currentUser?.id && (
+          <audio
+            key={`audio-${p.user_id}`}
+            autoPlay
+            playsInline
+            ref={(audioEl) => {
+              const stream = remoteStreamsRef.current[p.user_id];
+              if (audioEl && stream && audioEl.srcObject !== stream) {
+                audioEl.srcObject = stream;
+              }
+            }}
+          />
+        )
+      ))}
     </div>
   );
 };
