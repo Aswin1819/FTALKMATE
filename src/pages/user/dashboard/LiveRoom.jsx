@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '../../../components/ui/avatar';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
-import { Mic, MicOff, Video, VideoOff, MessageCircle, X, Send, LogOut, HandMetal, PhoneOff, Users } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, MessageCircle, X, Send, LogOut, HandMetal, PhoneOff, Users, FolderOpen } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { toast } from '../../../hooks/use-toast';
 import roomApi from '../../../api/roomApi';
@@ -12,6 +12,8 @@ import { fetchAccessToken } from '../../../api/auth';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "../../../components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../../../components/ui/dialog";
 import { Textarea } from "../../../components/ui/textarea";
+import followApi from '../../../api/followApi'
+import { UserPlus, UserMinus, Flag } from 'lucide-react';
 
 const LiveRoom = () => {
   const { roomId } = useParams();
@@ -54,6 +56,10 @@ const LiveRoom = () => {
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [reportTarget, setReportTarget] = useState(null);
   const [reportReason, setReportReason] = useState("");
+
+  // --- Following state for toggling follow/unfollow ---
+  const [following, setFollowing] = useState([]);
+  const [followingLoading, setFollowingLoading] = useState({}); // userId: boolean
 
   // WebRTC configuration
   const rtcConfiguration = {
@@ -637,6 +643,7 @@ const LiveRoom = () => {
               : p
           )
         );
+        console.log("Inside user_mute_toggle UP:", participants)
         break;
 
       case 'user_video_toggle':
@@ -657,7 +664,7 @@ const LiveRoom = () => {
               : p
           )
         );
-        console.log("Inside hand_raised websocket message")
+        console.log("Inside hand_raised websocket message updated participats:", participants)
         break;
 
       case 'webrtc_offer':
@@ -836,6 +843,38 @@ const LiveRoom = () => {
     }
   }, [isVideoMode]);
 
+  const handleFollowToggle = async (participant) => {
+    if (!currentUser || participant.user_id === currentUser.id) return;
+    setFollowingLoading(prev => ({ ...prev, [participant.user_id]: true }));
+    try {
+      if (following.includes(participant.user_id)) {
+        await followApi.unfollowUser(participant.user_id);
+        setFollowing(f => f.filter(id => id !== participant.user_id));
+        toast({
+          title: 'Unfollowed',
+          description: `You unfollowed ${participant.username}.`,
+          variant: 'default'
+        });
+      } else {
+        await followApi.followUser(participant.user_id);
+        setFollowing(f => [...f, participant.user_id]);
+        toast({
+          title: 'Followed',
+          description: `You are now following ${participant.username}`,
+          variant: 'default'
+        });
+      }
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: `Failed to update follow status.`,
+        variant: 'destructive'
+      });
+    } finally {
+      setFollowingLoading(prev => ({ ...prev, [participant.user_id]: false }));
+    }
+  };
+
   const handleLeaveRoom = useCallback(async () => {
     try {
       // Close WebSocket
@@ -965,6 +1004,21 @@ const LiveRoom = () => {
       iceCandidateQueueRef.current = {};
     };
   }, [initializeRoom, initializeMedia, connectWebSocket]);
+
+
+  useEffect(() => {
+    const fetchFollowing = async () => {
+      if (!currentUser) return;
+      try {
+        const data = await followApi.getFollowing();
+        setFollowing(data.map(u => u.user.id));
+      } catch (err) {
+        setFollowing([]);
+        console.log("Error in fetching following");
+      }
+    };
+    fetchFollowing();
+  }, [currentUser, participants.length]);
 
   // Fixed WebRTC connection establishment
   useEffect(() => {
@@ -1203,26 +1257,29 @@ const LiveRoom = () => {
     );
   }
 
+
+
+
   return (
-    <div className="h-screen w-screen flex flex-col bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 overflow-hidden relative">
+    <div className="h-screen w-screen flex flex-col bg-black overflow-hidden relative">
       {/* Animated Background */}
-      <div className="absolute inset-0 opacity-30">
-        <div className="absolute top-0 -left-4 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl animate-blob"></div>
-        <div className="absolute top-0 -right-4 w-72 h-72 bg-yellow-300 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-2000"></div>
-        <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-4000"></div>
+      <div className="absolute inset-0 opacity-20">
+        <div className="absolute top-0 -left-4 w-72 h-72 bg-violet-400 rounded-full mix-blend-multiply filter blur-3xl animate-blob"></div>
+        <div className="absolute top-0 -right-4 w-72 h-72 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-2000"></div>
+        <div className="absolute -bottom-8 left-20 w-72 h-72 bg-purple-400 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-4000"></div>
       </div>
 
       {/* Top Header Bar */}
       <motion.div
-        className="h-16 flex items-center justify-between px-6 backdrop-blur-xl bg-black/20 border-b border-white/10 z-20 relative"
+        className="h-16 flex items-center justify-between px-6 backdrop-blur-xl bg-black/40 border-b border-violet-500/20 z-20 relative"
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5 }}
       >
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-3">
-            <div className="h-3 w-3 bg-red-500 rounded-full animate-pulse"></div>
-            <h1 className="font-bold text-white text-xl bg-gradient-to-r from-white to-purple-200 bg-clip-text text-transparent">
+            <div className="h-3 w-3 bg-red-500 rounded-full animate-pulse shadow-lg shadow-red-500/50"></div>
+            <h1 className="font-bold text-white text-xl bg-gradient-to-r from-white via-violet-200 to-purple-200 bg-clip-text text-transparent">
               {room?.title || 'Loading...'}
             </h1>
           </div>
@@ -1238,19 +1295,19 @@ const LiveRoom = () => {
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: index * 0.1 }}
               >
-                <Avatar className="h-10 w-10 border-3 border-white/20 hover:border-purple-400 transition-all duration-300 hover:scale-110">
+                <Avatar className="h-10 w-10 border-2 border-violet-400/30 hover:border-violet-400 transition-all duration-300 hover:scale-110 shadow-lg shadow-violet-500/20">
                   <AvatarImage src={participant.avatar}
                     loading="eager"
                     referrerPolicy="no-referrer"
                     crossOrigin='anonymous'
                     onError={() => console.log('avatar error')}
                     onLoad={() => console.log('avatar loaded')} />
-                  <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-500 text-white font-semibold">
+                  <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-500 text-white font-semibold">
                     {participant.username?.[0]?.toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 {participant.is_muted && (
-                  <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-red-500 rounded-full flex items-center justify-center">
+                  <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-red-500 rounded-full flex items-center justify-center shadow-lg shadow-red-500/30">
                     <MicOff className="h-2 w-2 text-white" />
                   </div>
                 )}
@@ -1259,7 +1316,7 @@ const LiveRoom = () => {
 
             {participants.length > 4 && (
               <motion.div
-                className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-sm text-white font-bold border-3 border-white/20 ml-2"
+                className="h-10 w-10 rounded-full bg-gradient-to-br from-violet-600 to-purple-600 flex items-center justify-center text-sm text-white font-bold border-2 border-violet-400/30 ml-2 shadow-lg shadow-violet-500/20"
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ delay: 0.4 }}
@@ -1268,7 +1325,7 @@ const LiveRoom = () => {
               </motion.div>
             )}
 
-            <div className="ml-4 px-3 py-1 bg-white/10 rounded-full backdrop-blur-sm">
+            <div className="ml-4 px-3 py-1 bg-black/30 backdrop-blur-sm rounded-full border border-violet-500/20 shadow-lg shadow-violet-500/10">
               <span className="text-white text-sm font-medium flex items-center">
                 <Users className="h-4 w-4 mr-1" />
                 {participants.length}
@@ -1280,11 +1337,11 @@ const LiveRoom = () => {
         <div className="flex items-center space-x-3">
           {room?.is_recording && (
             <motion.div
-              className="flex items-center px-3 py-1 bg-red-500/20 border border-red-500/50 rounded-full backdrop-blur-sm"
+              className="flex items-center px-3 py-1 bg-red-500/20 border border-red-500/50 rounded-full backdrop-blur-sm shadow-lg shadow-red-500/20"
               animate={{ scale: [1, 1.05, 1] }}
               transition={{ duration: 2, repeat: Infinity }}
             >
-              <div className="h-2 w-2 bg-red-400 rounded-full mr-2 animate-pulse"></div>
+              <div className="h-2 w-2 bg-red-400 rounded-full mr-2 animate-pulse shadow-lg shadow-red-400/50"></div>
               <span className="text-red-400 text-sm font-medium">REC</span>
             </motion.div>
           )}
@@ -1293,7 +1350,7 @@ const LiveRoom = () => {
             variant="ghost"
             size="sm"
             onClick={handleLeaveRoom}
-            className="bg-red-500/20 text-red-400 hover:bg-red-500/40 hover:text-white border border-red-500/30 hover:border-red-500/60 transition-all duration-300 hover:scale-105"
+            className="bg-red-500/20 text-red-400 hover:bg-red-500/40 hover:text-white border border-red-500/30 hover:border-red-500/60 transition-all duration-300 hover:scale-105 backdrop-blur-sm shadow-lg shadow-red-500/10"
           >
             <LogOut className="h-4 w-4 mr-2" />
             Leave
@@ -1311,16 +1368,13 @@ const LiveRoom = () => {
               {participants.map((participant, index) => (
                 <motion.div
                   key={participant.user_id}
-                  className="relative rounded-2xl overflow-hidden group hover:scale-[1.02] transition-all duration-300"
+                  className="relative rounded-2xl overflow-hidden group hover:scale-[1.02] transition-all duration-300 backdrop-blur-xl bg-black/30 border border-violet-500/20 shadow-lg shadow-violet-500/10"
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: index * 0.1 }}
-                  style={{
-                    background: 'linear-gradient(135deg, rgba(139, 69, 19, 0.3) 0%, rgba(0, 0, 0, 0.8) 100%)'
-                  }}
                 >
                   {/* Video Content */}
-                  <div className="aspect-video bg-gradient-to-br from-purple-900/50 to-black/80 relative overflow-hidden">
+                  <div className="aspect-video bg-gradient-to-br from-violet-900/50 to-black/80 relative overflow-hidden">
                     {participant.user_id === currentUser?.id ? (
                       <video
                         ref={localVideoRef}
@@ -1336,17 +1390,60 @@ const LiveRoom = () => {
                     {/* Video Overlay Effects */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
 
+                    {/* 3-Dot Menu */}
+                    {participant.user_id !== currentUser?.id && (
+                      <div className="absolute top-3 right-3 z-10">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 rounded-full bg-black/40 backdrop-blur-sm border border-violet-500/30 text-white hover:bg-black/60 hover:border-violet-400 transition-all duration-300 shadow-lg shadow-violet-500/10"
+                            >
+                              <span className="text-lg font-bold">⋯</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent className="z-50 min-w-[160px] rounded-xl p-2 backdrop-blur-xl bg-black/80 border border-violet-500/30 shadow-2xl shadow-violet-500/20">
+                            <DropdownMenuItem
+                              onClick={() => handleFollowToggle(participant)}
+                              disabled={followingLoading[participant.user_id]}
+                              className={
+                                'flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 font-medium text-sm ' +
+                                (following.includes(participant.user_id)
+                                  ? 'bg-gradient-to-r from-violet-600/50 to-purple-600/50 text-white hover:from-violet-600/70 hover:to-purple-600/70 border border-violet-500/30'
+                                  : 'bg-gradient-to-r from-violet-700/30 to-purple-700/30 text-violet-200 hover:from-violet-600/50 hover:to-purple-600/50 border border-violet-500/20')
+                              }
+                            >
+                              {following.includes(participant.user_id) ? (
+                                <UserMinus className="h-4 w-4" />
+                              ) : (
+                                <UserPlus className="h-4 w-4" />
+                              )}
+                              {following.includes(participant.user_id) ? 'Unfollow' : 'Follow'}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleOpenReport(participant)}
+                              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-red-600/50 to-pink-600/50 text-white hover:from-red-600/70 hover:to-pink-600/70 mt-1 font-medium text-sm border border-red-500/30"
+                            >
+                              <Flag className="h-4 w-4" />
+                              Report
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    )}
+
                     {/* Participant Info Overlay */}
                     <div className="absolute bottom-0 left-0 right-0 p-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
-                          <div className="px-2 py-1 bg-black/60 rounded-lg backdrop-blur-sm">
+                          <div className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded-lg border border-violet-500/20 shadow-lg shadow-violet-500/10">
                             <span className="text-white font-semibold text-sm">
                               {participant.user_id === currentUser?.id ? 'You' : participant.username}
                             </span>
                           </div>
                           {participant.role === 'host' && (
-                            <div className="px-2 py-1 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg">
+                            <div className="px-2 py-1 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg shadow-lg shadow-yellow-500/20">
                               <span className="text-white text-xs font-bold">HOST</span>
                             </div>
                           )}
@@ -1354,13 +1451,13 @@ const LiveRoom = () => {
 
                         <div className="flex items-center space-x-1">
                           {participant.is_muted && (
-                            <div className="p-1 bg-red-500/80 rounded-full">
+                            <div className="p-1 bg-red-500/80 rounded-full backdrop-blur-sm shadow-lg shadow-red-500/30">
                               <MicOff className="h-3 w-3 text-white" />
                             </div>
                           )}
                           {participant.hand_raised && (
                             <motion.div
-                              className="p-1 bg-yellow-500/80 rounded-full"
+                              className="p-1 bg-yellow-500/80 rounded-full backdrop-blur-sm shadow-lg shadow-yellow-500/30"
                               animate={{ rotate: [0, -10, 10, -10, 0] }}
                               transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
                             >
@@ -1368,7 +1465,7 @@ const LiveRoom = () => {
                             </motion.div>
                           )}
                           {!participant.video_enabled && (
-                            <div className="p-1 bg-gray-500/80 rounded-full">
+                            <div className="p-1 bg-gray-500/80 rounded-full backdrop-blur-sm shadow-lg shadow-gray-500/30">
                               <VideoOff className="h-3 w-3 text-white" />
                             </div>
                           )}
@@ -1380,25 +1477,69 @@ const LiveRoom = () => {
               ))}
             </div>
           ) : (
-            /* Audio-Only Flexbox Layout */
-            <div className="flex flex-wrap gap-6 items-center justify-center py-6">
-              {participants.map((participant) => (
+            /* Audio-Only Card Layout */
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 py-6">
+              {participants.map((participant, index) => (
                 <motion.div
                   key={participant.user_id}
                   className="relative group"
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  transition={{ type: "spring", stiffness: 200 }}
+                  transition={{ delay: index * 0.1 }}
                 >
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <div>
-                        <Avatar className="h-20 w-20 border-2 border-white/10 shadow-lg transition-all duration-300 group-hover:scale-105">
+                  <div className="relative p-4 rounded-2xl backdrop-blur-xl bg-black/30 border border-violet-500/20 shadow-lg shadow-violet-500/10 hover:shadow-violet-500/20 transition-all duration-300 hover:scale-[1.02]">
+                    {/* 3-Dot Menu */}
+                    {participant.user_id !== currentUser?.id && (
+                      <div className="absolute top-3 right-3 z-10">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 rounded-full bg-black/40 backdrop-blur-sm border border-violet-500/30 text-white hover:bg-black/60 hover:border-violet-400 transition-all duration-300 shadow-lg shadow-violet-500/10"
+                            >
+                              <span className="text-sm font-bold">⋯</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent className="z-50 min-w-[160px] rounded-xl p-2 backdrop-blur-xl bg-black/80 border border-violet-500/30 shadow-2xl shadow-violet-500/20">
+                            <DropdownMenuItem
+                              onClick={() => handleFollowToggle(participant)}
+                              disabled={followingLoading[participant.user_id]}
+                              className={
+                                'flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 font-medium text-sm ' +
+                                (following.includes(participant.user_id)
+                                  ? 'bg-gradient-to-r from-violet-600/50 to-purple-600/50 text-white hover:from-violet-600/70 hover:to-purple-600/70 border border-violet-500/30'
+                                  : 'bg-gradient-to-r from-violet-700/30 to-purple-700/30 text-violet-200 hover:from-violet-600/50 hover:to-purple-600/50 border border-violet-500/20')
+                              }
+                            >
+                              {following.includes(participant.user_id) ? (
+                                <UserMinus className="h-4 w-4" />
+                              ) : (
+                                <UserPlus className="h-4 w-4" />
+                              )}
+                              {following.includes(participant.user_id) ? 'Unfollow' : 'Follow'}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleOpenReport(participant)}
+                              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-red-600/50 to-pink-600/50 text-white hover:from-red-600/70 hover:to-pink-600/70 mt-1 font-medium text-sm border border-red-500/30"
+                            >
+                              <Flag className="h-4 w-4" />
+                              Report
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    )}
+
+                    {/* Avatar */}
+                    <div className="flex flex-col items-center space-y-3">
+                      <div className="relative">
+                        <Avatar className="h-16 w-16 border-2 border-violet-500/30 shadow-lg shadow-violet-500/20">
                           <AvatarImage src={participant.avatar}
                             loading="eager"
                             referrerPolicy="no-referrer"
                             onLoad={() => console.log('avatar loaded')} />
-                          <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-500 text-white font-semibold">
+                          <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-500 text-white font-semibold">
                             {participant.username?.[0]?.toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
@@ -1406,7 +1547,7 @@ const LiveRoom = () => {
                         {/* Audio Visualizer Ring for current user */}
                         {participant.user_id === currentUser?.id && (
                           <motion.div
-                            className="absolute inset-0 rounded-full border-2 border-purple-400"
+                            className="absolute inset-0 rounded-full border-2 border-violet-400 shadow-lg shadow-violet-400/30"
                             animate={{
                               scale: isMuted ? 1 : [1, 1.1, 1],
                               opacity: isMuted ? 0.3 : [0.3, 0.8, 0.3]
@@ -1418,7 +1559,7 @@ const LiveRoom = () => {
                         {/* Speaking Animation for other participants */}
                         {participant.user_id !== currentUser?.id && !participant.is_muted && (
                           <motion.div
-                            className="absolute inset-0 rounded-full border-2 border-green-400"
+                            className="absolute inset-0 rounded-full border-2 border-green-400 shadow-lg shadow-green-400/30"
                             animate={{
                               scale: [1, 1.2, 1],
                               opacity: [0.3, 0.8, 0.3]
@@ -1426,47 +1567,41 @@ const LiveRoom = () => {
                             transition={{ duration: 1.5, repeat: Infinity }}
                           />
                         )}
+                      </div>
 
-                        {/* Status Indicators */}
-                        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex space-x-1">
-                          {participant.is_muted && (
-                            <div className="h-6 w-6 bg-red-500 rounded-full flex items-center justify-center">
-                              <MicOff className="h-3 w-3 text-white" />
-                            </div>
-                          )}
-                          {participant.hand_raised && (
-                            <motion.div
-                              className="h-6 w-6 bg-yellow-500 rounded-full flex items-center justify-center"
-                              animate={{ rotate: [0, -10, 10, -10, 0] }}
-                              transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
-                            >
-                              <HandMetal className="h-3 w-3 text-white" />
-                            </motion.div>
-                          )}
-                        </div>
-
-                        {/* Username and role */}
-                        <div className="mt-2 text-center">
+                      {/* Username and Role */}
+                      <div className="text-center space-y-1">
+                        <div className="flex items-center justify-center space-x-2">
                           <span className="text-white font-semibold text-sm">
                             {participant.user_id === currentUser?.id ? "You" : participant.username}
                           </span>
                           {participant.role === "host" && (
-                            <span className="ml-2 px-2 py-1 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg text-white text-xs font-bold">
+                            <span className="px-2 py-1 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg text-white text-xs font-bold shadow-lg shadow-yellow-500/20">
                               HOST
                             </span>
                           )}
                         </div>
                       </div>
-                    </DropdownMenuTrigger>
-                    {/* Only show dropdown for others */}
-                    {participant.user_id !== currentUser?.id && (
-                      <DropdownMenuContent className="z-50">
-                        <DropdownMenuItem onClick={() => handleOpenReport(participant)}>
-                          Report
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    )}
-                  </DropdownMenu>
+
+                      {/* Status Indicators */}
+                      <div className="flex items-center justify-center space-x-2">
+                        {participant.is_muted && (
+                          <div className="h-6 w-6 bg-red-500/80 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg shadow-red-500/30">
+                            <MicOff className="h-3 w-3 text-white" />
+                          </div>
+                        )}
+                        {participant.hand_raised && (
+                          <motion.div
+                            className="h-6 w-6 bg-yellow-500/80 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/30"
+                            animate={{ rotate: [0, -10, 10, -10, 0] }}
+                            transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
+                          >
+                            <HandMetal className="h-3 w-3 text-white" />
+                          </motion.div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </motion.div>
               ))}
             </div>
@@ -1477,27 +1612,27 @@ const LiveRoom = () => {
         <AnimatePresence>
           {isChatOpen && (
             <motion.div
-              className="w-full sm:w-80 md:w-96 h-full flex flex-col backdrop-blur-xl bg-black/40 border-l border-white/10 relative z-20"
+              className="w-full sm:w-80 md:w-96 h-full flex flex-col backdrop-blur-xl bg-black/40 border-l border-violet-500/20 relative z-20 shadow-2xl shadow-violet-500/10"
               initial={{ x: 400, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: 400, opacity: 0 }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
             >
               {/* Chat Header */}
-              <div className="p-4 border-b border-white/10 bg-black/20">
+              <div className="p-4 border-b border-violet-500/20 bg-black/20 backdrop-blur-sm">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
-                    <MessageCircle className="h-5 w-5 text-purple-400" />
+                    <MessageCircle className="h-5 w-5 text-violet-400" />
                     <h3 className="font-semibold text-white">Live Chat</h3>
-                    <div className="px-2 py-1 bg-purple-500/20 rounded-full">
-                      <span className="text-purple-300 text-xs">{chatMessages.length}</span>
+                    <div className="px-2 py-1 bg-violet-500/20 backdrop-blur-sm rounded-full border border-violet-500/30 shadow-lg shadow-violet-500/10">
+                      <span className="text-violet-300 text-xs">{chatMessages.length}</span>
                     </div>
                   </div>
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => setIsChatOpen(false)}
-                    className="h-8 w-8 text-white hover:bg-white/10"
+                    className="h-8 w-8 text-white hover:bg-white/10 backdrop-blur-sm border border-violet-500/20 hover:border-violet-400 transition-all duration-300 shadow-lg shadow-violet-500/10"
                   >
                     <X className="h-4 w-4" />
                   </Button>
@@ -1505,7 +1640,7 @@ const LiveRoom = () => {
               </div>
 
               {/* Messages Area */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin scrollbar-thumb-purple-500/50">
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin scrollbar-thumb-violet-500/50 scrollbar-track-black/20">
                 <AnimatePresence>
                   {chatMessages.map((message, index) => (
                     <motion.div
@@ -1516,25 +1651,25 @@ const LiveRoom = () => {
                       transition={{ delay: index * 0.05 }}
                     >
                       {message.user !== currentUser?.id && (
-                        <Avatar className="h-8 w-8 mr-2 mt-1 flex-shrink-0">
+                        <Avatar className="h-8 w-8 mr-2 mt-1 flex-shrink-0 border border-violet-500/30 shadow-lg shadow-violet-500/10">
                           <AvatarImage src={message.avatar}
                             loading="eager"
                             referrerPolicy="no-referrer"
                             onLoad={() => console.log('avatar loaded')}
                           />
-                          <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-500">
+                          <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-500">
                             {message.username?.[0]?.toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
                       )}
 
-                      <div className={`max-w-[75%] ${message.user === currentUser?.id
-                        ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white"
-                        : "bg-white/10 text-white border border-white/10"
-                        } rounded-2xl p-3 backdrop-blur-sm shadow-lg`}>
+                      <div className={`max-w-[75%] backdrop-blur-sm shadow-lg ${message.user === currentUser?.id
+                        ? "bg-gradient-to-r from-violet-600/80 to-purple-600/80 text-white border border-violet-500/30 shadow-violet-500/20"
+                        : "bg-black/30 text-white border border-violet-500/20 shadow-violet-500/10"
+                        } rounded-2xl p-3`}>
                         {message.user !== currentUser?.id && (
                           <div className="flex justify-between items-center mb-1">
-                            <span className="font-semibold text-sm text-purple-300">{message.username}</span>
+                            <span className="font-semibold text-sm text-violet-300">{message.username}</span>
                             <span className="text-xs opacity-60">{formatTime(message.sent_at)}</span>
                           </div>
                         )}
@@ -1547,12 +1682,12 @@ const LiveRoom = () => {
                       </div>
 
                       {message.user === currentUser?.id && (
-                        <Avatar className="h-8 w-8 ml-2 mt-1 flex-shrink-0">
+                        <Avatar className="h-8 w-8 ml-2 mt-1 flex-shrink-0 border border-violet-500/30 shadow-lg shadow-violet-500/10">
                           <AvatarImage src={message.avatar}
                             loading="eager"
                             referrerPolicy="no-referrer"
                             onLoad={() => console.log('avatar loaded')} />
-                          <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-500">
+                          <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-500">
                             {currentUser.username?.[0]?.toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
@@ -1563,12 +1698,12 @@ const LiveRoom = () => {
               </div>
 
               {/* Message Input */}
-              <form onSubmit={handleSendMessage} className="p-4 border-t border-white/10 bg-black/20">
+              <form onSubmit={handleSendMessage} className="p-4 border-t border-violet-500/20 bg-black/20 backdrop-blur-sm">
                 <div className="flex items-center space-x-2">
                   <Input
                     type="text"
                     placeholder="Type your message..."
-                    className="flex-1 bg-white/5 border-white/20 text-white placeholder:text-white/50 rounded-xl focus:border-purple-400 focus:ring-1 focus:ring-purple-400"
+                    className="flex-1 bg-black/30 backdrop-blur-sm border-violet-500/30 text-white placeholder:text-white/50 rounded-xl focus:border-violet-400 focus:ring-1 focus:ring-violet-400 shadow-lg shadow-violet-500/10"
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
                   />
@@ -1576,7 +1711,7 @@ const LiveRoom = () => {
                     type="submit"
                     size="icon"
                     disabled={!messageInput.trim()}
-                    className="bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 rounded-xl h-10 w-10 shadow-lg hover:shadow-purple-500/25 transition-all duration-300"
+                    className="bg-gradient-to-r from-violet-600 to-purple-600 text-white hover:from-violet-700 hover:to-purple-700 disabled:opacity-50 rounded-xl h-10 w-10 shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 transition-all duration-300"
                   >
                     <Send className="h-4 w-4" />
                   </Button>
@@ -1589,7 +1724,7 @@ const LiveRoom = () => {
 
       {/* Enhanced Bottom Control Bar */}
       <motion.div
-        className="h-20 px-6 backdrop-blur-xl bg-black/30 border-t border-white/10 flex justify-between items-center relative z-20"
+        className="h-20 px-6 backdrop-blur-xl bg-black/40 border-t border-violet-500/20 flex justify-between items-center relative z-20 shadow-2xl shadow-violet-500/10"
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5, delay: 0.2 }}
@@ -1601,9 +1736,9 @@ const LiveRoom = () => {
             variant="outline"
             size="sm"
             onClick={toggleVideoMode}
-            className={`px-4 py-2 rounded-xl border-2 transition-all duration-300 hover:scale-105 ${isVideoMode
-              ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white border-blue-500/50 shadow-lg shadow-blue-500/25"
-              : "bg-white/5 text-white border-white/20 hover:border-purple-400 hover:bg-white/10"
+            className={`px-4 py-2 rounded-xl border-2 transition-all duration-300 hover:scale-105 backdrop-blur-sm ${isVideoMode
+              ? "bg-gradient-to-r from-blue-600/80 to-violet-600/80 text-white border-blue-500/50 shadow-lg shadow-blue-500/25"
+              : "bg-black/30 text-white border-violet-500/30 hover:border-violet-400 hover:bg-black/40"
               }`}
           >
             {isVideoMode ? <VideoOff className="h-4 w-4 mr-2" /> : <Video className="h-4 w-4 mr-2" />}
@@ -1616,9 +1751,9 @@ const LiveRoom = () => {
           {/* Mute Toggle */}
           <motion.button
             onClick={handleMuteToggle}
-            className={`relative h-14 w-14 rounded-full flex items-center justify-center transition-all duration-300 shadow-2xl ${isMuted
-              ? "bg-gradient-to-r from-red-600 to-red-500 shadow-red-500/50"
-              : "bg-gradient-to-r from-green-600 to-green-500 shadow-green-500/50"
+            className={`relative h-14 w-14 rounded-full flex items-center justify-center transition-all duration-300 shadow-2xl backdrop-blur-sm ${isMuted
+              ? "bg-gradient-to-r from-red-600/80 to-red-500/80 shadow-red-500/50"
+              : "bg-gradient-to-r from-green-600/80 to-green-500/80 shadow-green-500/50"
               }`}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
@@ -1634,13 +1769,15 @@ const LiveRoom = () => {
             />
           </motion.button>
 
+
+
           {/* Video Toggle */}
           <motion.button
             onClick={handleVideoToggle}
             disabled={!isVideoMode}
-            className={`relative h-12 w-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg ${videoEnabled && isVideoMode
-              ? "bg-gradient-to-r from-blue-600 to-purple-600 shadow-blue-500/50"
-              : "bg-white/10 text-white/70 shadow-white/10"
+            className={`relative h-12 w-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg backdrop-blur-sm ${videoEnabled && isVideoMode
+              ? "bg-gradient-to-r from-blue-600/80 to-violet-600/80 shadow-blue-500/50"
+              : "bg-black/30 text-white/70 shadow-white/10 border border-violet-500/20"
               } ${!isVideoMode ? "opacity-50 cursor-not-allowed" : "hover:scale-110"}`}
             whileHover={isVideoMode ? { scale: 1.1 } : {}}
             whileTap={isVideoMode ? { scale: 0.95 } : {}}
@@ -1651,9 +1788,9 @@ const LiveRoom = () => {
           {/* Raise Hand */}
           <motion.button
             onClick={handleRaiseHand}
-            className={`relative h-12 w-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg ${isHandRaised
-              ? "bg-gradient-to-r from-yellow-500 to-orange-500 shadow-yellow-500/50"
-              : "bg-white/10 text-white hover:bg-white/20 shadow-white/10"
+            className={`relative h-12 w-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg backdrop-blur-sm ${isHandRaised
+              ? "bg-gradient-to-r from-yellow-500/80 to-orange-500/80 shadow-yellow-500/50"
+              : "bg-black/30 text-white hover:bg-black/40 shadow-white/10 border border-violet-500/20 hover:border-violet-400"
               }`}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
@@ -1666,9 +1803,9 @@ const LiveRoom = () => {
           {/* Chat Toggle */}
           <motion.button
             onClick={handleChatToggle}
-            className={`relative h-12 w-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg ${isChatOpen
-              ? "bg-gradient-to-r from-purple-600 to-pink-600 shadow-purple-500/50"
-              : "bg-white/10 text-white hover:bg-white/20 shadow-white/10"
+            className={`relative h-12 w-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg backdrop-blur-sm ${isChatOpen
+              ? "bg-gradient-to-r from-purple-600/80 to-pink-600/80 shadow-purple-500/50"
+              : "bg-black/30 text-white hover:bg-black/40 shadow-white/10 border border-violet-500/20 hover:border-violet-400"
               }`}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
@@ -1676,7 +1813,7 @@ const LiveRoom = () => {
             <MessageCircle className="h-5 w-5" />
             {unreadCount > 0 && !isChatOpen && (
               <motion.div
-                className="absolute -top-1 -right-1 h-5 w-5 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg"
+                className="absolute -top-1 -right-1 h-5 w-5 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg shadow-red-500/30"
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ type: "spring", stiffness: 400 }}
@@ -1692,9 +1829,9 @@ const LiveRoom = () => {
         {/* Right Info */}
         <div className="flex items-center space-x-4">
           {/* Connection Status */}
-          <div className="flex items-center space-x-2 px-3 py-2 bg-white/10 rounded-xl backdrop-blur-sm">
+          <div className="flex items-center space-x-2 px-3 py-2 bg-black/30 rounded-xl backdrop-blur-sm border border-violet-500/20 shadow-lg shadow-violet-500/10">
             <motion.div
-              className="h-2 w-2 bg-green-400 rounded-full"
+              className="h-2 w-2 bg-green-400 rounded-full shadow-lg shadow-green-400/50"
               animate={{ scale: [1, 1.2, 1], opacity: [0.7, 1, 0.7] }}
               transition={{ duration: 2, repeat: Infinity }}
             />
@@ -1702,17 +1839,6 @@ const LiveRoom = () => {
               {participants.length} online
             </span>
           </div>
-
-          {/* Leave Room */}
-          {/* <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleLeaveRoom}
-            className="bg-red-500/20 text-red-400 hover:bg-red-500/40 hover:text-white border border-red-500/30 hover:border-red-500/60 transition-all duration-300 hover:scale-105 rounded-xl px-4 py-2"
-          >
-            <PhoneOff className="h-4 w-4 mr-2" />
-            End Call
-          </Button> */}
         </div>
       </motion.div>
 
@@ -1721,104 +1847,104 @@ const LiveRoom = () => {
         {isChatOpen && (
           <div className="sm:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex">
             <motion.div
-              className="w-full h-full flex flex-col bg-gradient-to-br from-slate-900 to-purple-900 backdrop-blur-xl"
+              className="w-full h-full flex flex-col backdrop-blur-xl bg-black/80 border-l border-violet-500/20"
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
             >
-              <div className="p-4 border-b border-white/10 flex items-center justify-between bg-black/20">
+              <div className="p-4 border-b border-violet-500/20 flex items-center justify-between bg-black/20 backdrop-blur-sm">
                 <div className="flex items-center space-x-2">
-                  <MessageCircle className="h-5 w-5 text-purple-400" />
+                  <MessageCircle className="h-5 w-5 text-violet-400" />
                   <h3 className="font-semibold text-white text-lg">Chat</h3>
+                  <div className="px-2 py-1 bg-violet-500/20 backdrop-blur-sm rounded-full border border-violet-500/30 shadow-lg shadow-violet-500/10">
+                    <span className="text-violet-300 text-xs">{chatMessages.length}</span>
+                  </div>
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setIsChatOpen(false)}
-                  className="text-white hover:bg-white/10 rounded-xl"
+                  className="h-8 w-8 text-white hover:bg-white/10 backdrop-blur-sm border border-violet-500/20 hover:border-violet-400 transition-all duration-300 shadow-lg shadow-violet-500/10 rounded-xl"
                 >
                   <X className="h-5 w-5" />
                 </Button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {chatMessages.map((message, index) => (
-                  <motion.div
-                    key={message.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className={cn(
-                      "flex items-start",
-                      message.user === currentUser?.id ? "justify-end" : ""
-                    )}
-                  >
-                    {message.user !== currentUser?.id && (
-                      <Avatar className="h-8 w-8 mr-3 mt-1 ring-2 ring-purple-400/20">
-                        <AvatarImage src={message.avatar}
-                          loading="eager"
-                          referrerPolicy="no-referrer"
-                          onLoad={() => console.log('avatar loaded')} />
-                        <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-500 text-white text-xs">
-                          {message.username?.[0]?.toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                    )}
-
-                    <div className={cn(
-                      "max-w-[75%] rounded-2xl p-3 shadow-lg",
-                      message.user === currentUser?.id
-                        ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white"
-                        : "bg-white/10 backdrop-blur-sm text-white border border-white/5"
-                    )}>
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-violet-500/50 scrollbar-track-black/20">
+                <AnimatePresence>
+                  {chatMessages.map((message, index) => (
+                    <motion.div
+                      key={message.id || index}
+                      initial={{ opacity: 0, y: 20, scale: 0.8 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ delay: index * 0.05 }}
+                      className={`flex items-start ${message.user === currentUser?.id ? "justify-end" : "justify-start"}`}
+                    >
                       {message.user !== currentUser?.id && (
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="font-medium text-sm text-purple-300">
-                            {message.username}
-                          </span>
-                          <span className="text-xs opacity-70 text-gray-300">
-                            {formatTime(message.sent_at)}
-                          </span>
-                        </div>
+                        <Avatar className="h-8 w-8 mr-3 mt-1 border border-violet-500/30 shadow-lg shadow-violet-500/10">
+                          <AvatarImage src={message.avatar}
+                            loading="eager"
+                            referrerPolicy="no-referrer"
+                            onLoad={() => console.log('avatar loaded')} />
+                          <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-500 text-white text-xs">
+                            {message.username?.[0]?.toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
                       )}
-                      <p className="text-sm leading-relaxed">{message.content}</p>
-                      {message.user === currentUser?.id && (
-                        <div className="text-xs opacity-80 text-right mt-2">
-                          {formatTime(message.sent_at)}
-                        </div>
-                      )}
-                    </div>
 
-                    {message.user === currentUser?.id && (
-                      <Avatar className="h-8 w-8 ml-3 mt-1 ring-2 ring-purple-400/20">
-                        <AvatarImage src={message.avatar}
-                          loading="eager"
-                          referrerPolicy="no-referrer" />
-                        <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-500 text-white text-xs">
-                          {currentUser.username?.[0]?.toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                    )}
-                  </motion.div>
-                ))}
+                      <div className={`max-w-[75%] rounded-2xl p-3 shadow-lg backdrop-blur-sm ${message.user === currentUser?.id
+                        ? "bg-gradient-to-r from-violet-600/80 to-purple-600/80 text-white border border-violet-500/30 shadow-violet-500/20"
+                        : "bg-black/30 text-white border border-violet-500/20 shadow-violet-500/10"
+                        }`}>
+                        {message.user !== currentUser?.id && (
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="font-medium text-sm text-violet-300">
+                              {message.username}
+                            </span>
+                            <span className="text-xs opacity-70 text-gray-300">
+                              {formatTime(message.sent_at)}
+                            </span>
+                          </div>
+                        )}
+                        <p className="text-sm leading-relaxed">{message.content}</p>
+                        {message.user === currentUser?.id && (
+                          <div className="text-xs opacity-80 text-right mt-2">
+                            {formatTime(message.sent_at)}
+                          </div>
+                        )}
+                      </div>
+
+                      {message.user === currentUser?.id && (
+                        <Avatar className="h-8 w-8 ml-3 mt-1 border border-violet-500/30 shadow-lg shadow-violet-500/10">
+                          <AvatarImage src={message.avatar}
+                            loading="eager"
+                            referrerPolicy="no-referrer" />
+                          <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-500 text-white text-xs">
+                            {currentUser.username?.[0]?.toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                      )}
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
 
                 {chatMessages.length === 0 && (
                   <div className="flex flex-col items-center justify-center h-full text-center">
-                    <MessageCircle className="h-12 w-12 text-purple-400/50 mb-4" />
+                    <MessageCircle className="h-12 w-12 text-violet-400/50 mb-4" />
                     <p className="text-white/70 text-lg font-medium mb-2">No messages yet</p>
                     <p className="text-white/50 text-sm">Be the first to say something!</p>
                   </div>
                 )}
               </div>
 
-              <div className="p-4 border-t border-white/10 bg-black/20">
+              <div className="p-4 border-t border-violet-500/20 bg-black/20 backdrop-blur-sm">
                 <form onSubmit={handleSendMessage} className="flex items-center space-x-3">
                   <div className="flex-1 relative">
                     <Input
                       type="text"
                       placeholder="Type your message..."
-                      className="w-full bg-white/5 border-white/10 text-white placeholder:text-white/50 rounded-xl pr-12 py-3 focus:ring-2 focus:ring-purple-500/50 focus:border-transparent"
+                      className="w-full bg-black/30 backdrop-blur-sm border-violet-500/30 text-white placeholder:text-white/50 rounded-xl pr-12 py-3 focus:ring-2 focus:ring-violet-400/50 focus:border-violet-400 shadow-lg shadow-violet-500/10"
                       value={messageInput}
                       onChange={(e) => setMessageInput(e.target.value)}
                     />
@@ -1827,7 +1953,7 @@ const LiveRoom = () => {
                     type="submit"
                     size="icon"
                     disabled={!messageInput.trim()}
-                    className="bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 disabled:from-gray-600 disabled:to-gray-700 rounded-xl h-12 w-12 shadow-lg transition-all duration-200 transform hover:scale-105"
+                    className="bg-gradient-to-r from-violet-600 to-purple-600 text-white hover:from-violet-700 hover:to-purple-700 disabled:from-gray-600 disabled:to-gray-700 rounded-xl h-12 w-12 shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 transition-all duration-300 transform hover:scale-105"
                   >
                     <Send className="h-5 w-5" />
                   </Button>
@@ -1840,27 +1966,30 @@ const LiveRoom = () => {
 
       {/* Report User Modal */}
       <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
-        <DialogContent>
+        <DialogContent className="backdrop-blur-xl bg-black/80 border border-violet-500/30 shadow-2xl shadow-violet-500/20 rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Report {reportTarget?.username}</DialogTitle>
+            <DialogTitle className="text-white bg-gradient-to-r from-white via-violet-200 to-purple-200 bg-clip-text text-transparent">
+              Report {reportTarget?.username}
+            </DialogTitle>
           </DialogHeader>
           <Textarea
-            className="w-full min-h-[100px] mt-4"
+            className="w-full min-h-[100px] mt-4 bg-black/30 backdrop-blur-sm border-violet-500/30 text-white placeholder:text-white/50 rounded-xl focus:ring-2 focus:ring-violet-400/50 focus:border-violet-400 shadow-lg shadow-violet-500/10"
             placeholder="Describe the reason for reporting this user..."
             value={reportReason}
             onChange={e => setReportReason(e.target.value)}
           />
           <DialogFooter>
             <Button
-              className="bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-xl px-6 py-2"
+              className="bg-gradient-to-r from-red-600/80 to-pink-600/80 text-white hover:from-red-700/80 hover:to-pink-700/80 rounded-xl px-6 py-2 shadow-lg shadow-red-500/25 hover:shadow-red-500/40 transition-all duration-300 backdrop-blur-sm border border-red-500/30"
               onClick={handleSubmitReport}
               disabled={!reportReason.trim()}
             >
-              Submit
+              Submit Report
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
       {/* Hidden audio elements for remote participants */}
       {participants.map(p => (
         p.user_id !== currentUser?.id && (
@@ -1879,6 +2008,6 @@ const LiveRoom = () => {
       ))}
     </div>
   );
-};
+}
 
 export default LiveRoom;
