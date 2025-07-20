@@ -88,12 +88,12 @@ const AdminLogin = () => {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password" className="text-gray-300">Password</Label>
-                  <Link
+                  {/* <Link
                     to="/admin/forgot-password"
                     className="text-sm text-neon-purple hover:text-neon-purple/80 transition-colors"
                   >
                     Forgot Password?
-                  </Link>
+                  </Link> */}
                 </div>
                 <Input
                   id="password"
@@ -116,11 +116,11 @@ const AdminLogin = () => {
             </form>
           </CardContent>
 
-          <CardFooter className="flex justify-center border-t border-white/5 pt-6">
+          {/* <CardFooter className="flex justify-center border-t border-white/5 pt-6">
             <Link to="/" className="text-sm text-gray-400 hover:text-neon-purple transition-colors">
               ← Back to User Site
             </Link>
-          </CardFooter>
+          </CardFooter> */}
         </Card>
       </div>
     </div>

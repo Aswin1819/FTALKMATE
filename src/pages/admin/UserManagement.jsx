@@ -7,7 +7,9 @@ import {
   Ban,
   Eye,
   CheckCircle,
-  XCircle
+  XCircle,
+  Download,
+  ChevronDown
 } from 'lucide-react';
 import {
   Card,
@@ -24,6 +26,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "../../components/ui/avatar"
 import { fetchUsers } from "../../features/auth/adminSlice";
 import adminInstance from "../../features/auth/adminInstance";
 import UserProfileModal from "../../components/admin/UserProfileModal"
+import { toast } from '../../hooks/use-toast';
 
 const UserManagement = () => {
   const dispatch = useDispatch();
@@ -39,6 +42,7 @@ const UserManagement = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [activeTab, setActiveTab] = useState('all');
   const pageSize = 5;
+  const [exportLoading, setExportLoading] = useState(false);
   // Load users with current filters and page
   const loadUsers = async (page = 1, tab = activeTab, search = searchTerm) => {
     const params = { page, page_size: pageSize };
@@ -130,6 +134,89 @@ const UserManagement = () => {
     setSelectedUser(null);
   };
 
+  // Export functionality
+  const handleExport = async (period) => {
+    setExportLoading(true);
+    try {
+      const response = await adminInstance.get(`/users/export/`, {
+        params: { period },
+        responseType: 'blob' // Important for file download
+      });
+
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `users-${period}-${new Date().toISOString().split('T')[0]}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast({ 
+        title: 'Export Successful', 
+        description: `Users exported for ${period} period.` 
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({ 
+        title: 'Export Failed', 
+        description: 'Failed to export users. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  // Replace the Export button with this:
+  const ExportDropdown = () => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button 
+          className="bg-neon-purple hover:bg-neon-purple/90 text-white"
+          disabled={exportLoading}
+        >
+          {exportLoading ? (
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+          ) : (
+            <Download className="h-4 w-4 mr-2" />
+          )}
+          Export
+          <ChevronDown className="h-4 w-4 ml-2" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="bg-black/90 border-white/10 text-white">
+        <DropdownMenuLabel>Export Period</DropdownMenuLabel>
+        <DropdownMenuSeparator className="bg-white/10" />
+        <DropdownMenuItem
+          onClick={() => handleExport('this_week')}
+          className="hover:bg-white/10 focus:bg-white/10 cursor-pointer"
+          disabled={exportLoading}
+        >
+          <Download className="h-4 w-4 mr-2" />
+          This Week
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => handleExport('last_month')}
+          className="hover:bg-white/10 focus:bg-white/10 cursor-pointer"
+          disabled={exportLoading}
+        >
+          <Download className="h-4 w-4 mr-2" />
+          Last Month
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => handleExport('all')}
+          className="hover:bg-white/10 focus:bg-white/10 cursor-pointer"
+          disabled={exportLoading}
+        >
+          <Download className="h-4 w-4 mr-2" />
+          All Users
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col space-y-4 lg:flex-row lg:items-center lg:justify-between lg:space-y-0">
@@ -148,14 +235,7 @@ const UserManagement = () => {
               onChange={handleSearch}
             />
           </div>
-          {/* <Button variant="outline" className="border-white/10 text-white hover:bg-white/5">
-            <Filter className="h-4 w-4 mr-2" />
-            Filters
-          </Button> */}
-          <Button className="bg-neon-purple hover:bg-neon-purple/90 text-white">
-            <Users className="h-4 w-4 mr-2" />
-            Export
-          </Button>
+          <ExportDropdown />
         </div>
       </div>
 

@@ -3,7 +3,7 @@ import { Button } from "../ui/button";
 import { Globe, Moon, Menu, X } from "lucide-react";
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-
+import talkmateLogo from '../../../public/talkmateLogo.svg'
 const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -32,7 +32,11 @@ const Header = () => {
         <div
         onClick={() => navigate('/')}
          className="flex items-center gap-2">
-          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-neon-blue via-neon-purple to-neon-pink glow-purple"></div>
+          <img 
+            src={talkmateLogo} 
+            alt="TalkMate Logo" 
+            className="h-10 w-10"
+          />
           <span className="font-bold text-xl text-gradient-purple">TalkMate</span>
         </div>
 

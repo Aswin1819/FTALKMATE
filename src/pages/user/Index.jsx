@@ -10,7 +10,7 @@ import Footer from '../../components/index/Footer';
 const Index = () => {
   useEffect(() => {
     // Set title
-    document.title = "SpeakLink - Connect Globally, Speak Fluently";
+    document.title = "TalkMate - Connect Globally, Speak Fluently";
     
     // Initial animations
     const animateOnScroll = () => {

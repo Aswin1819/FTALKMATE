@@ -56,10 +56,24 @@ const LiveRoom = () => {
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [reportTarget, setReportTarget] = useState(null);
   const [reportReason, setReportReason] = useState("");
+  const [selectedReason, setSelectedReason] = useState('');
+  const [customReason, setCustomReason] = useState('');
 
   // --- Following state for toggling follow/unfollow ---
   const [following, setFollowing] = useState([]);
   const [followingLoading, setFollowingLoading] = useState({}); // userId: boolean
+
+  const reportReasons = [
+    { id: 'spam', label: 'Spam or unwanted messages' },
+    { id: 'misbehavior', label: 'Inappropriate behavior' },
+    { id: 'harassment', label: 'Harassment or bullying' },
+    { id: 'inappropriate_content', label: 'Inappropriate content' },
+    { id: 'fake_identity', label: 'Fake identity or impersonation' },
+    { id: 'disruptive', label: 'Disrupting conversations' },
+    { id: 'hate_speech', label: 'Hate speech or discrimination' },
+    { id: 'other', label: 'Other (please specify)' }
+  ];
+  
 
   // WebRTC configuration
   const rtcConfiguration = {
@@ -1213,20 +1227,34 @@ const LiveRoom = () => {
   // Handler to open modal
   const handleOpenReport = (user) => {
     setReportTarget(user);
-    setReportReason("");
+    setSelectedReason(''); // Reset selected reason
+    setCustomReason(''); // Reset custom reason
     setReportDialogOpen(true);
   };
 
   // Handler to submit report
   const handleSubmitReport = async () => {
-    if (!reportReason.trim()) {
-      toast({ title: "Reason required", description: "Please enter a reason.", variant: "destructive" });
+    if (!selectedReason) {
+      toast({ title: "Reason required", description: "Please select a reason.", variant: "destructive" });
       return;
     }
+    
+    if (selectedReason === 'other' && !customReason.trim()) {
+      toast({ title: "Description required", description: "Please describe the issue.", variant: "destructive" });
+      return;
+    }
+  
     try {
-      await roomApi.reportUser(room.id, reportTarget.user_id, reportReason);
+      const reportData = {
+        reason: selectedReason,
+        custom_description: selectedReason === 'other' ? customReason : null
+      };
+      
+      await roomApi.reportUser(room.id, reportTarget.user_id, reportData);
       toast({ title: "Reported", description: "User has been reported.", variant: "default" });
       setReportDialogOpen(false);
+      setSelectedReason('');
+      setCustomReason('');
     } catch (err) {
       toast({ title: "Error", description: "Failed to report user.", variant: "destructive" });
     }
@@ -1966,28 +1994,49 @@ const LiveRoom = () => {
 
       {/* Report User Modal */}
       <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
-        <DialogContent className="backdrop-blur-xl bg-black/80 border border-violet-500/30 shadow-2xl shadow-violet-500/20 rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-white bg-gradient-to-r from-white via-violet-200 to-purple-200 bg-clip-text text-transparent">
-              Report {reportTarget?.username}
-            </DialogTitle>
-          </DialogHeader>
-          <Textarea
-            className="w-full min-h-[100px] mt-4 bg-black/30 backdrop-blur-sm border-violet-500/30 text-white placeholder:text-white/50 rounded-xl focus:ring-2 focus:ring-violet-400/50 focus:border-violet-400 shadow-lg shadow-violet-500/10"
-            placeholder="Describe the reason for reporting this user..."
-            value={reportReason}
-            onChange={e => setReportReason(e.target.value)}
-          />
-          <DialogFooter>
-            <Button
-              className="bg-gradient-to-r from-red-600/80 to-pink-600/80 text-white hover:from-red-700/80 hover:to-pink-700/80 rounded-xl px-6 py-2 shadow-lg shadow-red-500/25 hover:shadow-red-500/40 transition-all duration-300 backdrop-blur-sm border border-red-500/30"
-              onClick={handleSubmitReport}
-              disabled={!reportReason.trim()}
-            >
-              Submit Report
-            </Button>
-          </DialogFooter>
-        </DialogContent>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Report {reportTarget?.username}</DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-4">
+          {/* Radio buttons for reasons */}
+          <div className="space-y-2">
+            {reportReasons.map((reason) => (
+              <label key={reason.id} className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="reportReason"
+                  value={reason.id}
+                  checked={selectedReason === reason.id}
+                  onChange={(e) => setSelectedReason(e.target.value)}
+                  className="text-violet-500"
+                />
+                <span className="text-white">{reason.label}</span>
+              </label>
+            ))}
+          </div>
+          
+          {/* Custom reason textarea (only show if "Other" is selected) */}
+          {selectedReason === 'other' && (
+            <Textarea
+              placeholder="Please describe the issue..."
+              value={customReason}
+              onChange={(e) => setCustomReason(e.target.value)}
+              className="..."
+            />
+          )}
+        </div>
+        
+        <DialogFooter>
+          <Button
+            onClick={handleSubmitReport}
+            disabled={!selectedReason || (selectedReason === 'other' && !customReason.trim())}
+          >
+            Submit Report
+          </Button>
+        </DialogFooter>
+      </DialogContent>
       </Dialog>
 
       {/* Hidden audio elements for remote participants */}

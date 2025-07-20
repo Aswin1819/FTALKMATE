@@ -44,7 +44,9 @@ import {
   Check,
   X
 } from 'lucide-react';
+import { toast } from '../../hooks/use-toast';
 import adminInstance from '../../features/auth/adminInstance';
+import DeleteConfirmationModal from '../../components/admin/DeleteConfirmationModal';
 
 
 const TaxonomyManagement = () => {
@@ -65,6 +67,11 @@ const TaxonomyManagement = () => {
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
   const [languageDialogOpen, setLanguageDialogOpen] = useState(false);
   const [roomTypeDialogOpen, setRoomTypeDialogOpen] = useState(false);
+
+  // Delete confirmation modal states
+  const [deleteTagModal, setDeleteTagModal] = useState({ isOpen: false, id: null });
+  const [deleteLanguageModal, setDeleteLanguageModal] = useState({ isOpen: false, id: null });
+  const [deleteRoomTypeModal, setDeleteRoomTypeModal] = useState({ isOpen: false, id: null });
 
   // New item states
   const [newTag, setNewTag] = useState({ name: "", color: "#7E69AB" });
@@ -160,12 +167,29 @@ const TaxonomyManagement = () => {
     try {
       const tagData = { name: newTagName, color: newTagColor };
       await adminInstance.post("http://localhost:8000/api/rooms/tags/", tagData);
+      toast({
+        title:"success",
+        description:'Tag Created Successfully',
+        variant:'default'
+      })
       setNewTagName('');
       setNewTagColor('#7E69AB');
       setTagDialogOpen(false);
       fetchTags();
     } catch (error) {
-      console.error('Error creating tag:', error);
+      let errorMsg = "Something went wrong";
+      if (error.response && error.response.data){
+        if (error.response.data.name){
+          errorMsg = error.response.data.name[0];
+        }else if(typeof error.response.data === 'string'){
+          errorMsg = error.response.data
+        }
+      }
+      toast({
+        title:'error',
+        description:errorMsg,
+        variant:'default'
+      })
     }
   };
 
@@ -179,12 +203,29 @@ const TaxonomyManagement = () => {
     try {
       const tagData = { name: editTagName, color: editTagColor };
       await adminInstance.put(`http://localhost:8000/api/rooms/tags/${id}/`, tagData);
+      toast({
+        title:"success",
+        description:'Tag Updated Successfully',
+        variant:'default'
+      })
       setEditingTagId(null);
       setEditTagName('');
       setEditTagColor('');
       fetchTags();
     } catch (error) {
-      console.error('Error updating tag:', error);
+      let errorMsg = "Something went wrong";
+      if (error.response && error.response.data){
+        if (error.response.data.name){
+          errorMsg = error.response.data.name[0];
+        }else if(typeof error.response.data === 'string'){
+          errorMsg = error.response.data
+        }
+      }
+      toast({
+        title:'error',
+        description:errorMsg,
+        variant:'default'
+      })
     }
   };
 
@@ -195,13 +236,31 @@ const TaxonomyManagement = () => {
   };
 
   const handleDeleteTag = async (id) => {
-    if (window.confirm('Are you sure you want to delete this tag?')) {
-      try {
-        await adminInstance.delete(`http://localhost:8000/api/rooms/tags/${id}/`);
-        fetchTags();
-      } catch (error) {
-        console.error('Error deleting tag:', error);
+    setDeleteTagModal({ isOpen: true, id });
+  };
+
+  const confirmDeleteTag = async () => {
+    try {
+      await adminInstance.delete(`http://localhost:8000/api/rooms/tags/${deleteTagModal.id}/`);
+      toast({
+        title:"success",
+        description:'Tag Deleted Successfully',
+        variant:'default'
+      })
+      setDeleteTagModal({ isOpen: false, id: null });
+      fetchTags();
+    } catch (error) {
+      let errorMsg = "Something went wrong";
+      if (error.response && error.response.data){
+        if (typeof error.response.data === 'string'){
+          errorMsg = error.response.data
+        }
       }
+      toast({
+        title:'error',
+        description:errorMsg,
+        variant:'default'
+      })
     }
   };
 
@@ -210,12 +269,31 @@ const TaxonomyManagement = () => {
     try {
       const languageData = { name: newLanguageName, code: newLanguageCode };
       await adminInstance.post("http://localhost:8000/api/users/languages/", languageData);
+      toast({
+        title:"success",
+        description:'Language Created Successfully',
+        variant:'default'
+      })
       setNewLanguageName('');
       setNewLanguageCode('');
       setLanguageDialogOpen(false);
       fetchLanguages();
     } catch (error) {
-      console.error('Error creating language:', error);
+      let errorMsg = "Something went wrong";
+      if (error.response && error.response.data){
+        if (error.response.data.name){
+          errorMsg = error.response.data.name[0];
+        }else if (error.response.data.code){
+          errorMsg = error.response.data.code[0];
+        }else if(typeof error.response.data === 'string'){
+          errorMsg = error.response.data
+        }
+      }
+      toast({
+        title:'error',
+        description:errorMsg,
+        variant:'default'
+      })
     }
   };
 
@@ -229,12 +307,31 @@ const TaxonomyManagement = () => {
     try {
       const languageData = { name: editLanguageName, code: editLanguageCode };
       await adminInstance.put(`http://localhost:8000/api/users/languages/${id}/`, languageData);
+      toast({
+        title:"success",
+        description:'Language Updated Successfully',
+        variant:'default'
+      })
       setEditingLanguageId(null);
       setEditLanguageName('');
       setEditLanguageCode('');
       fetchLanguages();
     } catch (error) {
-      console.error('Error updating language:', error);
+      let errorMsg = "Something went wrong";
+      if (error.response && error.response.data){
+        if (error.response.data.name){
+          errorMsg = error.response.data.name[0];
+        }else if (error.response.data.code){
+          errorMsg = error.response.data.code[0];
+        }else if(typeof error.response.data === 'string'){
+          errorMsg = error.response.data
+        }
+      }
+      toast({
+        title:'error',
+        description:errorMsg,
+        variant:'default'
+      })
     }
   };
 
@@ -245,13 +342,31 @@ const TaxonomyManagement = () => {
   };
 
   const handleDeleteLanguage = async (id) => {
-    if (window.confirm('Are you sure you want to delete this language?')) {
-      try {
-        await adminInstance.delete(`http://localhost:8000/api/users/languages/${id}/`);
-        fetchLanguages();
-      } catch (error) {
-        console.error('Error deleting language:', error);
+    setDeleteLanguageModal({ isOpen: true, id });
+  };
+
+  const confirmDeleteLanguage = async () => {
+    try {
+      await adminInstance.delete(`http://localhost:8000/api/users/languages/${deleteLanguageModal.id}/`);
+      toast({
+        title:"success",
+        description:'Language Deleted Successfully',
+        variant:'default'
+      })
+      setDeleteLanguageModal({ isOpen: false, id: null });
+      fetchLanguages();
+    } catch (error) {
+      let errorMsg = "Something went wrong";
+      if (error.response && error.response.data){
+        if (typeof error.response.data === 'string'){
+          errorMsg = error.response.data
+        }
       }
+      toast({
+        title:'error',
+        description:errorMsg,
+        variant:'default'
+      })
     }
   };
 
@@ -260,12 +375,31 @@ const TaxonomyManagement = () => {
     try {
       const roomTypeData = { name: newRoomTypeName, description: newRoomTypeDescription };
       await adminInstance.post("http://localhost:8000/api/rooms/roomtypes/", roomTypeData);
+      toast({
+        title:"success",
+        description:'Room Type Created Successfully',
+        variant:'default'
+      })
       setNewRoomTypeName('');
       setNewRoomTypeDescription('');
       setRoomTypeDialogOpen(false);
       fetchRoomTypes();
     } catch (error) {
-      console.error('Error creating room type:', error);
+      let errorMsg = "Something went wrong";
+      if (error.response && error.response.data){
+        if (error.response.data.name){
+          errorMsg = error.response.data.name[0];
+        }else if (error.response.data.description){
+          errorMsg = error.response.data.description[0];
+        }else if(typeof error.response.data === 'string'){
+          errorMsg = error.response.data
+        }
+      }
+      toast({
+        title:'error',
+        description:errorMsg,
+        variant:'default'
+      })
     }
   };
 
@@ -279,12 +413,31 @@ const TaxonomyManagement = () => {
     try {
       const roomTypeData = { name: editRoomTypeName, description: editRoomTypeDescription };
       await adminInstance.put(`http://localhost:8000/api/rooms/roomtypes/${id}/`, roomTypeData);
+      toast({
+        title:"success",
+        description:'Room Type Updated Successfully',
+        variant:'default'
+      })
       setEditingRoomTypeId(null);
       setEditRoomTypeName('');
       setEditRoomTypeDescription('');
       fetchRoomTypes();
     } catch (error) {
-      console.error('Error updating room type:', error);
+      let errorMsg = "Something went wrong";
+      if (error.response && error.response.data){
+        if (error.response.data.name){
+          errorMsg = error.response.data.name[0];
+        }else if (error.response.data.description){
+          errorMsg = error.response.data.description[0];
+        }else if(typeof error.response.data === 'string'){
+          errorMsg = error.response.data
+        }
+      }
+      toast({
+        title:'error',
+        description:errorMsg,
+        variant:'default'
+      })
     }
   };
 
@@ -295,13 +448,31 @@ const TaxonomyManagement = () => {
   };
 
   const handleDeleteRoomType = async (id) => {
-    if (window.confirm('Are you sure you want to delete this room type?')) {
-      try {
-        await adminInstance.delete(`http://localhost:8000/api/rooms/roomtypes/${id}/`);
-        fetchRoomTypes();
-      } catch (error) {
-        console.error('Error deleting room type:', error);
+    setDeleteRoomTypeModal({ isOpen: true, id });
+  };
+
+  const confirmDeleteRoomType = async () => {
+    try {
+      await adminInstance.delete(`http://localhost:8000/api/rooms/roomtypes/${deleteRoomTypeModal.id}/`);
+      toast({
+        title:"success",
+        description:'Room Type Deleted Successfully',
+        variant:'default'
+      })
+      setDeleteRoomTypeModal({ isOpen: false, id: null });
+      fetchRoomTypes();
+    } catch (error) {
+      let errorMsg = "Something went wrong";
+      if (error.response && error.response.data){
+        if (typeof error.response.data === 'string'){
+          errorMsg = error.response.data
+        }
       }
+      toast({
+        title:'error',
+        description:errorMsg,
+        variant:'default'
+      })
     }
   };
 
@@ -683,169 +854,192 @@ const TaxonomyManagement = () => {
             </div>
           </TabsContent>
           
-       
-          
           {/* Room Types Tab */}
-            <TabsContent value="roomTypes" className="m-0 p-6">
+          <TabsContent value="roomTypes" className="m-0 p-6">
             <div className="flex flex-col md:flex-row justify-between mb-6 gap-4">
-                <div className="relative flex-grow max-w-md">
+              <div className="relative flex-grow max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
                 <Input 
-                    placeholder="Search room types..." 
-                    value={roomTypeSearchTerm}
-                    onChange={(e) => setRoomTypeSearchTerm(e.target.value)}
-                    className="pl-9 bg-black/20 border-white/10 text-white placeholder:text-gray-500"
+                  placeholder="Search room types..." 
+                  value={roomTypeSearchTerm}
+                  onChange={(e) => setRoomTypeSearchTerm(e.target.value)}
+                  className="pl-9 bg-black/20 border-white/10 text-white placeholder:text-gray-500"
                 />
-                </div>
-                
-                <Dialog open={roomTypeDialogOpen} onOpenChange={setRoomTypeDialogOpen}>
+              </div>
+              
+              <Dialog open={roomTypeDialogOpen} onOpenChange={setRoomTypeDialogOpen}>
                 <DialogTrigger asChild>
-                    <Button className="bg-gradient-to-r from-neon-green to-neon-blue text-white">
+                  <Button className="bg-gradient-to-r from-neon-green to-neon-blue text-white">
                     <Plus className="h-4 w-4 mr-2" /> Add Room Type
-                    </Button>
+                  </Button>
                 </DialogTrigger>
                 <DialogContent className="bg-black/90 backdrop-blur-xl border-white/10 text-white">
-                    <DialogHeader>
+                  <DialogHeader>
                     <DialogTitle>Add New Room Type</DialogTitle>
                     <DialogDescription className="text-gray-400">
-                        Define a new type of conversation room that users can create.
+                      Define a new type of conversation room that users can create.
                     </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <label htmlFor="roomTypeName" className="text-sm font-medium text-gray-300">Room Type Name</label>
-                        <Input
+                      <label htmlFor="roomTypeName" className="text-sm font-medium text-gray-300">Room Type Name</label>
+                      <Input
                         id="roomTypeName"
                         value={newRoomTypeName}
                         onChange={(e) => setNewRoomTypeName(e.target.value)}
                         placeholder="e.g., Study Group"
                         className="bg-black/30 border-white/10 text-white"
-                        />
+                      />
                     </div>
                     <div className="space-y-2">
-                        <label htmlFor="roomTypeDescription" className="text-sm font-medium text-gray-300">Description</label>
-                        <Input
+                      <label htmlFor="roomTypeDescription" className="text-sm font-medium text-gray-300">Description</label>
+                      <Input
                         id="roomTypeDescription"
                         value={newRoomTypeDescription}
                         onChange={(e) => setNewRoomTypeDescription(e.target.value)}
                         placeholder="Briefly describe the purpose of this room type"
                         className="bg-black/30 border-white/10 text-white"
-                        />
+                      />
                     </div>
-                    </div>
-                    <DialogFooter className="flex justify-end gap-2">
+                  </div>
+                  <DialogFooter className="flex justify-end gap-2">
                     <Button 
-                        variant="ghost" 
-                        className="text-gray-400 hover:text-white hover:bg-white/10"
-                        onClick={() => setRoomTypeDialogOpen(false)}
+                      variant="ghost" 
+                      className="text-gray-400 hover:text-white hover:bg-white/10"
+                      onClick={() => setRoomTypeDialogOpen(false)}
                     >
-                        Cancel
+                      Cancel
                     </Button>
                     <Button 
-                        onClick={handleCreateRoomType}
-                        className="bg-gradient-to-r from-neon-green to-neon-blue text-white"
-                        disabled={!newRoomTypeName.trim() || !newRoomTypeDescription.trim()}
+                      onClick={handleCreateRoomType}
+                      className="bg-gradient-to-r from-neon-green to-neon-blue text-white"
+                      disabled={!newRoomTypeName.trim() || !newRoomTypeDescription.trim()}
                     >
-                        Add Room Type
+                      Add Room Type
                     </Button>
-                    </DialogFooter>
+                  </DialogFooter>
                 </DialogContent>
-                </Dialog>
+              </Dialog>
             </div>
             
             <div className="rounded-lg overflow-x-auto">
-                <Table>
+              <Table>
                 <TableHeader className="bg-black/40">
-                    <TableRow className="border-b border-white/10 hover:bg-transparent">
+                  <TableRow className="border-b border-white/10 hover:bg-transparent">
                     <TableHead className="text-gray-400">Room Type</TableHead>
                     <TableHead className="text-gray-400">Description</TableHead>
                     <TableHead className="text-gray-400 text-right">Actions</TableHead>
-                    </TableRow>
+                  </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {filteredRoomTypes.length > 0 ? (
+                  {filteredRoomTypes.length > 0 ? (
                     filteredRoomTypes.map((roomType) => (
-                        <TableRow key={roomType.id} className="border-b border-white/5 hover:bg-white/5">
+                      <TableRow key={roomType.id} className="border-b border-white/5 hover:bg-white/5">
                         {editingRoomTypeId === roomType.id ? (
-                            <>
+                          <>
                             <TableCell>
-                                <Input
+                              <Input
                                 value={editRoomTypeName}
                                 onChange={(e) => setEditRoomTypeName(e.target.value)}
                                 className="bg-black/30 border-white/10 text-white"
                                 placeholder="Room type name"
-                                />
+                              />
                             </TableCell>
                             <TableCell>
-                                <Input
+                              <Input
                                 value={editRoomTypeDescription}
                                 onChange={(e) => setEditRoomTypeDescription(e.target.value)}
                                 className="bg-black/30 border-white/10 text-white"
                                 placeholder="Description"
-                                />
+                              />
                             </TableCell>
                             <TableCell className="text-right">
-                                <div className="flex items-center justify-end gap-1">
+                              <div className="flex items-center justify-end gap-1">
                                 <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    className="h-8 w-8 p-0 text-neon-green hover:text-white hover:bg-neon-green/20"
-                                    onClick={() => handleSaveRoomType(roomType.id)}
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="h-8 w-8 p-0 text-neon-green hover:text-white hover:bg-neon-green/20"
+                                  onClick={() => handleSaveRoomType(roomType.id)}
                                 >
-                                    <Check className="h-4 w-4" />
+                                  <Check className="h-4 w-4" />
                                 </Button>
                                 <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    className="h-8 w-8 p-0 text-red-400 hover:text-white hover:bg-red-400/20"
-                                    onClick={handleCancelRoomTypeEdit}
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="h-8 w-8 p-0 text-red-400 hover:text-white hover:bg-red-400/20"
+                                  onClick={handleCancelRoomTypeEdit}
                                 >
-                                    <X className="h-4 w-4" />
+                                  <X className="h-4 w-4" />
                                 </Button>
-                                </div>
+                              </div>
                             </TableCell>
-                            </>
+                          </>
                         ) : (
-                            <>
+                          <>
                             <TableCell className="font-medium text-white">{roomType.name}</TableCell>
                             <TableCell className="max-w-sm truncate">{roomType.description}</TableCell>
                             <TableCell className="text-right">
-                                <div className="flex items-center justify-end gap-1">
+                              <div className="flex items-center justify-end gap-1">
                                 <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    className="h-8 w-8 p-0 text-gray-400 hover:text-neon-blue hover:bg-white/10"
-                                    onClick={() => handleEditRoomType(roomType)}
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="h-8 w-8 p-0 text-gray-400 hover:text-neon-blue hover:bg-white/10"
+                                  onClick={() => handleEditRoomType(roomType)}
                                 >
-                                    <Edit className="h-4 w-4" />
+                                  <Edit className="h-4 w-4" />
                                 </Button>
                                 <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    className="h-8 w-8 p-0 text-gray-400 hover:text-red-400 hover:bg-white/10"
-                                    onClick={() => handleDeleteRoomType(roomType.id)}
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="h-8 w-8 p-0 text-gray-400 hover:text-red-400 hover:bg-white/10"
+                                  onClick={() => handleDeleteRoomType(roomType.id)}
                                 >
-                                    <Trash2 className="h-4 w-4" />
+                                  <Trash2 className="h-4 w-4" />
                                 </Button>
-                                </div>
+                              </div>
                             </TableCell>
-                            </>
+                          </>
                         )}
-                        </TableRow>
+                      </TableRow>
                     ))
-                    ) : (
+                  ) : (
                     <TableRow>
-                        <TableCell colSpan={3} className="h-24 text-center text-gray-500">
+                      <TableCell colSpan={3} className="h-24 text-center text-gray-500">
                         {loadingRoomTypes ? "Loading room types..." : "No room types match your search criteria"}
-                        </TableCell>
+                      </TableCell>
                     </TableRow>
-                    )}
+                  )}
                 </TableBody>
-                </Table>
+              </Table>
             </div>
-            </TabsContent>
+          </TabsContent>
         </Tabs>
       </Card>
+
+      {/* Delete Confirmation Modals */}
+      <DeleteConfirmationModal
+        isOpen={deleteTagModal.isOpen}
+        onClose={() => setDeleteTagModal({ isOpen: false, id: null })}
+        onConfirm={confirmDeleteTag}
+        title="Delete Tag"
+        description="Are you sure you want to delete this tag? This action cannot be undone."
+      />
+
+      <DeleteConfirmationModal
+        isOpen={deleteLanguageModal.isOpen}
+        onClose={() => setDeleteLanguageModal({ isOpen: false, id: null })}
+        onConfirm={confirmDeleteLanguage}
+        title="Delete Language"
+        description="Are you sure you want to delete this language? This action cannot be undone."
+      />
+
+      <DeleteConfirmationModal
+        isOpen={deleteRoomTypeModal.isOpen}
+        onClose={() => setDeleteRoomTypeModal({ isOpen: false, id: null })}
+        onConfirm={confirmDeleteRoomType}
+        title="Delete Room Type"
+        description="Are you sure you want to delete this room type? This action cannot be undone."
+      />
     </div>
   );
 };

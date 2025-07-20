@@ -95,10 +95,14 @@ useEffect(() => {
     setLoading(true);
     try {
         const res = await adminInstance.get(`/user-subscriptions/?page=${page}`);
-        setSubscriptions(res.data.results);
-        setSubscriptionsPagination({ page, count: res.data.count });
+        console.log('User subscriptions API response:', res.data);
+        setSubscriptions(res.data.results || []);
+        setSubscriptionsPagination({ page, count: res.data.count || 0 });
     } catch (err) {
+        console.error('Error fetching user subscriptions:', err);
         toast({ title: 'Error', description: 'Failed to fetch subscriptions', variant: 'destructive' });
+        setSubscriptions([]);
+        setSubscriptionsPagination({ page: 1, count: 0 });
     } finally {
         setLoading(false);
     }
@@ -109,12 +113,29 @@ useEffect(() => {
     const totalSubscriptions = subscriptions.length;
     const activeSubscriptions = subscriptions.filter(sub => sub.status === 'active').length;
     const expiredSubscriptions = subscriptions.filter(sub => sub.status === 'expired').length;
+    
+    // Debug logging for subscription data
+    console.log('Subscriptions data:', subscriptions);
+    console.log('Active subscriptions:', subscriptions.filter(sub => sub.status === 'active'));
+    
     const estimatedRevenue = subscriptions
         .filter(sub => sub.status === 'active')
         .reduce((total, sub) => {
-            const price = parseFloat((sub.amount || '').replace('$', ''));
-            return total + (isNaN(price) ? 0 : price);
+            // Remove ₹ symbol and parse the price
+            const amountStr = sub.amount || '';
+            const price = parseFloat(amountStr.replace('₹', '').replace(/[^\d.]/g, ''));
+            console.log(`Subscription ${sub.id}: amount="${amountStr}", parsed price=${price}`);
+            
+            // Additional validation
+            if (isNaN(price) || price < 0) {
+                console.warn(`Invalid price for subscription ${sub.id}: ${amountStr}`);
+                return total;
+            }
+            
+            return total + price;
         }, 0);
+    
+    console.log('Total estimated revenue:', estimatedRevenue);
 
     // Filter subscriptions based on search term and filters
     const filteredSubscriptions = subscriptions.filter(sub => {
@@ -393,41 +414,50 @@ useEffect(() => {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {subscriptionPlans.map((plan) => (
-                                    <TableRow key={plan.id} className="border-white/10 hover:bg-white/5 transition-colors">
-                                        <TableCell className="text-white font-mono text-sm">{plan.id}</TableCell>
-                                        <TableCell className="text-white font-medium">{plan.name}</TableCell>
-                                        <TableCell className="text-white">{plan.duration_days}</TableCell>
-                                        <TableCell>
-                                            {plan.is_active ? (
-                                                <Badge className="bg-neon-green/70 hover:bg-neon-green/90 text-black">Active</Badge>
-                                            ) : (
-                                                <Badge className="bg-red-500/70 hover:bg-red-500/90 text-black">Inactive</Badge>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="text-white font-medium">{plan.price}</TableCell>
-                                        <TableCell className="text-white">
-                                            <div className="max-w-xs">
-                                                {plan.features.split(',').map((feature, index) => (
-                                                    <div key={index} className="py-0.5 text-sm">
-                                                        {feature.trim()}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-white hover:text-neon-purple hover:bg-white/10"
-                                                onClick={() => handleEditPlan(plan)}
-                                                aria-label="Edit Plan"
-                                            >
-                                                <Pencil className="h-4 w-4" />
-                                            </Button>
+                                {subscriptionPlans.length > 0 ?(
+                                    subscriptionPlans.map((plan) => (
+                                        <TableRow key={plan.id} className="border-white/10 hover:bg-white/5 transition-colors">
+                                            <TableCell className="text-white font-mono text-sm">{plan.id}</TableCell>
+                                            <TableCell className="text-white font-medium">{plan.name}</TableCell>
+                                            <TableCell className="text-white">{plan.duration_days}</TableCell>
+                                            <TableCell>
+                                                {plan.is_active ? (
+                                                    <Badge className="bg-neon-green/70 hover:bg-neon-green/90 text-black">Active</Badge>
+                                                ) : (
+                                                    <Badge className="bg-red-500/70 hover:bg-red-500/90 text-black">Inactive</Badge>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="text-white font-medium">{plan.price}</TableCell>
+                                            <TableCell className="text-white">
+                                                <div className="max-w-xs">
+                                                    {plan.features.split(',').map((feature, index) => (
+                                                        <div key={index} className="py-0.5 text-sm">
+                                                            {feature.trim()}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 text-white hover:text-neon-purple hover:bg-white/10"
+                                                    onClick={() => handleEditPlan(plan)}
+                                                    aria-label="Edit Plan"
+                                                >
+                                                    <Pencil className="h-4 w-4" />
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+
+                                ):(
+                                    <TableRow>
+                                        <TableCell colSpan={7} className="h-24 text-center text-gray-400">
+                                            No subscription plans found.
                                         </TableCell>
                                     </TableRow>
-                                ))}
+                                )}
                             </TableBody>
                         </Table>
                                 <PaginationControls

@@ -34,12 +34,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, onLogout }) => {
       to: "/dashboard/explore",
       activePattern: /^\/dashboard\/explore$/
     },
-    // { 
-    //   label: "Create", 
-    //   icon: PlusSquare, 
-    //   to: "/dashboard/create",
-    //   activePattern: /^\/dashboard\/create$/
-    // },
+
     {
       label: "Profile",
       icon: User,

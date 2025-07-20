@@ -29,7 +29,7 @@ const Premium = () => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-center">
               <div>
-                <h3 className="text-3xl font-bold mb-4 text-gradient-purple">SpeakLink Premium</h3>
+                <h3 className="text-3xl font-bold mb-4 text-gradient-purple">TalkMate Premium</h3>
                 <ul className="space-y-5 mb-8">
                   <li className="flex items-start gap-3">
                     <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-neon-purple text-xs font-medium text-white ring-1 ring-inset ring-white/10 glow-purple">✓</span>

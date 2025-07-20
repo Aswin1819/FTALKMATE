@@ -1,8 +1,12 @@
 import React from 'react';
 import { Button } from "../ui/button";
 import { Globe, Moon, Twitter, Linkedin, ExternalLink } from "lucide-react";
+import { useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 
 const Footer = () => {
+  const user = useSelector((state) => state.auth.user)
+  const navigate = useNavigate();
   return (
     <footer className="py-12 relative">
       <div className="container mx-auto px-4">
@@ -12,7 +16,7 @@ const Footer = () => {
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <div className="h-10 w-10 rounded-full bg-gradient-to-br from-neon-blue via-neon-purple to-neon-pink glow-purple"></div>
-                <span className="font-bold text-xl text-gradient-purple">SpeakLink</span>
+                <span className="font-bold text-xl text-gradient-purple">TalkMate</span>
               </div>
               <p className="text-gray-400 text-sm mb-4">
                 Connect globally, speak fluently. Practice languages with real people from around the world.
@@ -62,7 +66,7 @@ const Footer = () => {
           </div>
           
           <div className="border-t border-white/10 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
-            <p className="text-sm text-gray-500 mb-4 md:mb-0">© {new Date().getFullYear()} SpeakLink. All rights reserved.</p>
+            <p className="text-sm text-gray-500 mb-4 md:mb-0">© {new Date().getFullYear()} TalkMate. All rights reserved.</p>
             <div className="flex items-center gap-4">
               <Button variant="ghost" size="icon" className="rounded-full glass-morphism hover:glow-blue transition-all">
                 <Globe className="h-5 w-5 text-neon-blue" />
@@ -83,8 +87,10 @@ const Footer = () => {
               <h3 className="text-2xl font-bold text-gradient-purple mb-2">Ready to start your language journey?</h3>
               <p className="text-gray-300">Join thousands of language learners around the world.</p>
             </div>
-            <Button className="bg-neon-purple hover:bg-neon-purple/90 text-white glow-purple hover:glow-pink hover:scale-105 transition-all duration-300 whitespace-nowrap px-8 py-6 text-lg">
-              Get Started — Free
+            <Button
+              onClick={() => user?navigate('/dashboard'):navigate('/auth')}
+              className="bg-neon-purple hover:bg-neon-purple/90 text-white glow-purple hover:glow-pink hover:scale-105 transition-all duration-300 whitespace-nowrap px-8 py-6 text-lg">
+              {user ? "Go To Dashboard" : "Get Started — Free" }
             </Button>
           </div>
         </div>
