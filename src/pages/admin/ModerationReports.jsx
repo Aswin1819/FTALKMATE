@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Tabs, 
-  TabsContent, 
-  TabsList, 
-  TabsTrigger 
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger
 } from "../../components/ui/tabs";
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
 } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -30,15 +30,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
-import { 
-  Flag, 
-  Search, 
+import {
+  Flag,
+  Search,
   ShieldCheck,
-  Ban, 
-  CheckCircle, 
+  Ban,
+  CheckCircle,
   XCircle,
   Eye
 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../components/ui/tooltip"
 import { formatDistanceToNow } from 'date-fns';
 import ReportDetailsModal from '../../components/admin/ReportDetailsModal';
 import { toast } from '../../hooks/use-toast';
@@ -117,12 +118,12 @@ const ModerationReports = () => {
   };
 
   const handleSuspendUser = async (id) => {
-    try{
-      await adminModerationApi.updateReportStatus(id,'suspend')
-      setReports((r) => r.map((rep) => (rep.id === id ? { ...rep, status:'resolved'}: rep)))
+    try {
+      await adminModerationApi.updateReportStatus(id, 'suspend')
+      setReports((r) => r.map((rep) => (rep.id === id ? { ...rep, status: 'resolved' } : rep)))
       toast({ title: 'Success', description: `Report #${id} has been resolved.` });
-    }catch {
-      toast({ title: "Error", description: "Failed to Suspend User", variant: "destructive"});
+    } catch {
+      toast({ title: "Error", description: "Failed to Suspend User", variant: "destructive" });
     }
 
   };
@@ -157,14 +158,44 @@ const ModerationReports = () => {
               <TableCell>{report.status}</TableCell>
               <TableCell>
                 <div className="flex space-x-1">
-                  <Button variant="ghost" size="sm" onClick={() => handleViewDetails(report)}><Eye className="h-4 w-4" /></Button>
-                  {report.status === 'pending' && (
-                    <>
-                      <Button variant="ghost" size="sm" onClick={() => handleResolveReport(report.id)}><CheckCircle className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDismissReport(report.id)}><XCircle className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleSuspendUser(report.id)}><Ban className="h-4 w-4" /></Button>
-                    </>
-                  )}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="sm" onClick={() => handleViewDetails(report)}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>View</TooltipContent>
+                    </Tooltip>
+                    {report.status === 'pending' && (
+                      <>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="sm" onClick={() => handleResolveReport(report.id)}>
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Resolve</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="sm" onClick={() => handleDismissReport(report.id)}>
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Reject</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="sm" onClick={() => handleSuspendUser(report.id)}>
+                              <Ban className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Suspend</TooltipContent>
+                        </Tooltip>
+                      </>
+                    )}
+                  </TooltipProvider>
                 </div>
               </TableCell>
             </TableRow>

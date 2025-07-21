@@ -21,7 +21,7 @@ const ReportDetailsModal = ({ isOpen, onClose, report }) => {
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-white flex items-center">
             <Badge className="mr-2 bg-red-500/20 text-red-400 hover:bg-red-500/30">
-              {report.reason}
+              {report.reasonLabel || report.reason}
             </Badge>
             Report Details
           </DialogTitle>
@@ -37,7 +37,7 @@ const ReportDetailsModal = ({ isOpen, onClose, report }) => {
               <p className="text-sm text-gray-400 mb-2">Reporter</p>
               <div className="flex items-center">
                 <Avatar className="h-10 w-10">
-                  <AvatarImage src={`https://i.pravatar.cc/150?u=${report.reporter}`} />
+                  <AvatarImage src={report.reporterAvatar} />
                   <AvatarFallback>{report.reporter[0]}</AvatarFallback>
                 </Avatar>
                 <div className="ml-3">
@@ -49,7 +49,7 @@ const ReportDetailsModal = ({ isOpen, onClose, report }) => {
               <p className="text-sm text-gray-400 mb-2">Reported User</p>
               <div className="flex items-center">
                 <Avatar className="h-10 w-10">
-                  <AvatarImage src={`https://i.pravatar.cc/150?u=${report.reported}`} />
+                  <AvatarImage src={report.reportedAvatar} />
                   <AvatarFallback>{report.reported[0]}</AvatarFallback>
                 </Avatar>
                 <div className="ml-3">
@@ -63,7 +63,7 @@ const ReportDetailsModal = ({ isOpen, onClose, report }) => {
           <div>
             <p className="text-sm text-gray-400 mb-2">Reported Content</p>
             <div className="bg-black/20 p-4 rounded-lg border border-white/10">
-              <p className="italic">{report.content}</p>
+              <p className="italic">{report.reasonLabel || report.reason}</p>
             </div>
           </div>
 
