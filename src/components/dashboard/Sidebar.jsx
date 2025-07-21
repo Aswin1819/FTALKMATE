@@ -16,9 +16,13 @@ const Sidebar = ({ collapsed, onToggleCollapse, onLogout }) => {
   const location = useLocation();
   console.log("Sidebar rendered with user:", user);
 
-  useEffect(() => {
+  const refreshProfile = () => {
     axiosInstance.get('/profile/')
-      .then(res => setProfile(res.data));
+      .then(res => setProfile(res.data))
+  };
+
+  useEffect(() => {
+    refreshProfile();
   }, []);
 
   const navItems = [
@@ -158,6 +162,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, onLogout }) => {
               onOpenChange={setSocialModalOpen}
               defaultTab={socialModalTab}
               userId={null} // null = current user
+              onCloseProfileRefresh={refreshProfile}
             />
           </>
         )}

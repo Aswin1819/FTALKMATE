@@ -153,7 +153,14 @@ export const roomApi = {
       reportData
     );
     return response.data;
-  }
+  },
+  editRoom: async (roomId, roomData) => {
+    const response = await axiosInstance.patch(
+      `http://127.0.0.1:8000/api/rooms/${roomId}/edit/`,
+      roomData
+    );
+    return response.data;
+  },
 
 };
 

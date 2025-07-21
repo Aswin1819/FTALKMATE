@@ -34,16 +34,25 @@ function ListPane({ type, userId, onClose }) {
   }, [type, userId]);
 
   const handleRowChange = (resp) => {
-    // resp is SocialActionResponse; update relationship_state for matching row
     setItems(list => list.map(it =>
       (it.id === resp.target_profile_id ? { ...it, relationship_state: resp.relationship_state } : it)
     ));
   };
 
+  // Empty state messages
+  const emptyMessages = {
+    followers: "No followers yet.",
+    following: "You are not following anyone.",
+    friends: "No friends yet."
+  };
+
   return (
     <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+      {items.length === 0 && !loading && (
+        <div className="text-center text-xs text-white/60 py-4">{emptyMessages[type]}</div>
+      )}
       {items.map(item => (
-        <SocialUserCard key={item.id} profile={item} onChange={handleRowChange} />
+        <SocialUserCard key={item.id} profile={item} onChange={handleRowChange} tabType={type} />
       ))}
       {next && (
         <div className="flex justify-center pt-2">
@@ -55,11 +64,21 @@ function ListPane({ type, userId, onClose }) {
   );
 }
 
-export function SocialListModal({ open, onOpenChange, defaultTab = 'followers', userId = null }) {
+export function SocialListModal({ open, onOpenChange, defaultTab = 'followers', userId = null, onCloseProfileRefresh }) {
   const [tab, setTab] = useState(defaultTab);
+
   useEffect(() => setTab(defaultTab), [defaultTab]);
+
+  // Call profile refresh on close
+  const handleOpenChange = (isOpen) => {
+    onOpenChange(isOpen);
+    if (!isOpen && typeof onCloseProfileRefresh === 'function') {
+      onCloseProfileRefresh();
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md bg-[#13071D]/90 backdrop-blur-xl border border-white/10 text-white">
         <DialogHeader>
           <DialogTitle>Connections</DialogTitle>

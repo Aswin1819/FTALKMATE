@@ -6,45 +6,58 @@ import socialApi from '../../api/socialApi';
 import { toast } from '../../hooks/use-toast';
 import { Description } from '@radix-ui/react-dialog';
 
-export function SocialUserCard({ profile, onChange }) {
+export function SocialUserCard({ profile, onChange, tabType = 'followers' }) {
   const [loading, setLoading] = useState(false);
-  const { id, unique_id, username, avatar, relationship_state, level, is_online, is_premium } = profile;
+  const { id, unique_id, username, avatar, relationship_state, level } = profile;
 
-  const labelMap = {
-    none: 'Follow',
-    follower: 'Follow back',
-    following: 'Following',
-    friend: 'Friends',
-  };
+  // Button label and action logic based on tabType and relationship_state
+  let buttonLabel = null;
+  let showButton = true;
+
+  if (tabType === 'friends') {
+    showButton = false; // No button in friends tab
+  } else if (tabType === 'followers') {
+    if (relationship_state === 'following' || relationship_state === 'friend') {
+      buttonLabel = 'Unfollow';
+    } else {
+      buttonLabel = 'Follow back';
+    }
+  } else if (tabType === 'following') {
+    if (relationship_state === 'following' || relationship_state === 'friend') {
+      buttonLabel = 'Unfollow';
+    } else {
+      buttonLabel = null; // Should not happen, but fallback
+      showButton = false;
+    }
+  }
 
   const handleClick = async () => {
     if (loading) return;
     setLoading(true);
     try {
       let resp;
-      if (relationship_state === 'following' || relationship_state === 'friend') {
+      if (buttonLabel === 'Unfollow') {
         resp = await socialApi.unfollowUser(profile.user_id || profile.id);
         toast({
-            titiel:'success',
-            Description:'Unfollowed Successfylly',
-            variant:'default'
-        }) // <-- Success toast for unfollow
-      } else {
+          title: 'Success',
+          description: 'Unfollowed Successfully',
+          variant: 'default'
+        });
+      } else if (buttonLabel === 'Follow back') {
         resp = await socialApi.followUser(profile.user_id || profile.id);
         toast({
-            title:'success',
-            description:'Followed Succcesfully',
-            variant:'default'
-        })
+          title: 'Success',
+          description: 'Followed Successfully',
+          variant: 'default'
+        });
       }
       onChange?.(resp);
     } catch (err) {
-      // You can extract error message from err if your API provides it
       toast({
-        title:'error',
-        description:"Failed ",
-        variant:'destructive'
-      })
+        title: 'Error',
+        description: "Failed",
+        variant: 'destructive'
+      });
       console.error('Social action error', err);
     } finally {
       setLoading(false);
@@ -61,14 +74,16 @@ export function SocialUserCard({ profile, onChange }) {
         <div className="text-sm font-medium text-white truncate">{username}</div>
         <div className="text-xs text-white/60 truncate">{unique_id} • L{level}</div>
       </div>
-      <Button
-        size="sm"
-        variant={relationship_state === 'none' || relationship_state === 'follower' ? 'default' : 'secondary'}
-        disabled={loading}
-        onClick={handleClick}
-      >
-        {loading ? '...' : labelMap[relationship_state] || 'Follow'}
-      </Button>
+      {showButton && buttonLabel && (
+        <Button
+          size="sm"
+          variant={buttonLabel === 'Unfollow' ? 'secondary' : 'default'}
+          disabled={loading}
+          onClick={handleClick}
+        >
+          {loading ? '...' : buttonLabel}
+        </Button>
+      )}
     </div>
   );
 }

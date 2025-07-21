@@ -54,7 +54,18 @@ const formSchema = z.object({
 
 
 
-const CreateRoomDialog = ({ isOpen, onClose, onRoomCreated, roomTypes = [], tags = [], languages = [] }) => {
+const CreateRoomDialog = ({
+  isOpen,
+  onClose,
+  onRoomCreated,
+  roomTypes = [],
+  tags = [],
+  languages = [],
+  initialRoom = null,
+  mode = "create",
+  isPremium = false,
+}) => {
+  console.log("isPremium prop in CreateRoomDialog:", isPremium, typeof isPremium);
   const [loading, setLoading] = useState(false);
   const [selectedTags, setSelectedTags] = useState([]);
   const [tagSearchTerm, setTagSearchTerm] = useState('');
@@ -76,15 +87,22 @@ const CreateRoomDialog = ({ isOpen, onClose, onRoomCreated, roomTypes = [], tags
 
   const watchIsPrivate = form.watch('is_private');
 
-  // Reset form when dialog closes
+  // Pre-fill form for edit
   useEffect(() => {
-    if (!isOpen) {
-      form.reset();
-      setSelectedTags([]);
-      setTagSearchTerm('');
-      setError(null);
+    if (isOpen && initialRoom) {
+      form.reset({
+        title: initialRoom.title || '',
+        room_type: initialRoom.room_type?.toString() || '',
+        language: initialRoom.language?.toString() || '',
+        description: initialRoom.description || '',
+        max_participants: initialRoom.max_participants || 5,
+        is_private: initialRoom.is_private || false,
+        password: '', // Don't prefill password for security
+        tags: initialRoom.tags?.map(tag => tag.id) || [],
+      });
+      setSelectedTags(initialRoom.tags || []);
     }
-  }, [isOpen, form]);
+  }, [isOpen, initialRoom]);
 
   // Update form tags when selectedTags changes
   useEffect(() => {
@@ -112,7 +130,6 @@ const CreateRoomDialog = ({ isOpen, onClose, onRoomCreated, roomTypes = [], tags
     setError(null);
     
     try {
-      // Prepare the room data according to your backend API
       const roomData = {
         title: data.title,
         description: data.description || '',
@@ -121,20 +138,19 @@ const CreateRoomDialog = ({ isOpen, onClose, onRoomCreated, roomTypes = [], tags
         max_participants: data.max_participants,
         is_private: data.is_private,
         password: data.is_private ? data.password : '',
-        tag_ids: data.tags, // Array of tag IDs
+        tag_ids: data.tags,
       };
 
-      console.log('Creating room with data:', roomData);
-      
-      const newRoom = await roomApi.createRoom(roomData);
-      
-      // Call the callback to update the parent component
-      if (onRoomCreated) {
-        onRoomCreated(newRoom);
-        console.log("New romm:",newRoom)
+      let updatedRoom;
+      if (mode === "edit" && initialRoom) {
+        updatedRoom = await roomApi.editRoom(initialRoom.id, roomData);
+      } else {
+        updatedRoom = await roomApi.createRoom(roomData);
       }
-      
-      // Close the dialog
+
+      if (onRoomCreated) {
+        onRoomCreated(updatedRoom);
+      }
       onClose();
       
     } catch (err) {
@@ -142,7 +158,7 @@ const CreateRoomDialog = ({ isOpen, onClose, onRoomCreated, roomTypes = [], tags
       setError(
         err.response?.data?.message || 
         err.response?.data?.error || 
-        'Failed to create room. Please try again.'
+        'Failed to save room. Please try again.'
       );
     } finally {
       setLoading(false);
@@ -156,10 +172,12 @@ const CreateRoomDialog = ({ isOpen, onClose, onRoomCreated, roomTypes = [], tags
           <div className="p-6">
             <DialogHeader>
               <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-neon-purple to-neon-blue bg-clip-text text-transparent">
-                Create a New Room
+                {mode === "edit" ? "Edit Room" : "Create a New Room"}
               </DialogTitle>
               <DialogDescription className="text-gray-400">
-                Set up your conversation room and invite others to join.
+                {mode === "edit"
+                  ? "Update your room details below."
+                  : "Set up your conversation room and invite others to join."}
               </DialogDescription>
             </DialogHeader>
 
@@ -368,17 +386,24 @@ const CreateRoomDialog = ({ isOpen, onClose, onRoomCreated, roomTypes = [], tags
                           </FormDescription>
                         </div>
                         <FormControl>
+                          <div className="flex items-center">
                           <input
                             type="checkbox"
                             checked={field.value}
                             onChange={field.onChange}
                             className="accent-neon-purple h-4 w-4"
+                            disabled={!isPremium}
                           />
+                            {!isPremium && (
+                              <span className="ml-2 text-xs text-yellow-400" title="Only for premium users">
+                                (Only for premium users)
+                              </span>
+                            )}
+                          </div>
                         </FormControl>
                       </FormItem>
                     )}
                   />
-
                   {watchIsPrivate && (
                     <FormField
                       control={form.control}
@@ -419,7 +444,9 @@ const CreateRoomDialog = ({ isOpen, onClose, onRoomCreated, roomTypes = [], tags
                     disabled={loading}
                     className="bg-gradient-to-r from-neon-purple to-neon-blue text-white hover:from-neon-purple/90 hover:to-neon-blue/90"
                   >
-                    {loading ? 'Creating...' : 'Create Room'}
+                    {loading
+                      ? (mode === "edit" ? "Saving..." : "Creating...")
+                      : (mode === "edit" ? "Save Changes" : "Create Room")}
                   </Button>
                 </DialogFooter>
               </form>

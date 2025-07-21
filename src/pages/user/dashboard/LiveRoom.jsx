@@ -624,30 +624,32 @@ const LiveRoom = () => {
         });
         break;
       }
-      case 'chat_message':
-        setChatMessages(prev => {
-          const messageExists = prev.some(msg =>
-            msg.id === data.message_id ||
-            (msg.content === data.message &&
-              msg.username === data.username &&
-              Math.abs(new Date(msg.sent_at) - new Date(data.timestamp)) < 1000)
-          );
-          if (messageExists) {
-            return prev;
-          }
-          const newMessage = {
-            id: data.message_id || Date.now(),
-            user: data.user_id,
-            username: data.username,
-            content: data.message,
-            sent_at: data.timestamp
-          };
-          if (!isChatOpen && data.user_id !== currentUser?.id) {
-            setUnreadCount(count => count + 1);
-          }
-          return [...prev, newMessage];
-        });
+      case 'chat_message': {
+        // Check if the message already exists
+        const isDuplicate = chatMessages.some(msg =>
+          msg.id === data.message_id ||
+          (msg.content === data.message &&
+            msg.username === data.username &&
+            Math.abs(new Date(msg.sent_at) - new Date(data.timestamp)) < 1000)
+        );
+        if (isDuplicate) break;
+      
+        const newMessage = {
+          id: data.message_id || Date.now(),
+          user: data.user_id,
+          username: data.username,
+          content: data.message,
+          sent_at: data.timestamp
+        };
+      
+        setChatMessages(prev => [...prev, newMessage]);
+      
+        // Only increment unread count if chat is closed and message is not from current user
+        if (!isChatOpen && data.user_id !== currentUser?.id) {
+          setUnreadCount(count => count + 1);
+        }
         break;
+      }
 
       case 'user_mute_toggle':
         setParticipants(prev =>
@@ -657,7 +659,6 @@ const LiveRoom = () => {
               : p
           )
         );
-        console.log("Inside user_mute_toggle UP:", participants)
         break;
 
       case 'user_video_toggle':
@@ -678,7 +679,6 @@ const LiveRoom = () => {
               : p
           )
         );
-        console.log("Inside hand_raised websocket message updated participats:", participants)
         break;
 
       case 'webrtc_offer':
@@ -695,7 +695,6 @@ const LiveRoom = () => {
 
       case 'audio_connection_request':
         // Handle any specific audio connection logic if needed
-        console.log('Audio connection request from:', data.from_user_id);
         break;
 
       default:
@@ -714,7 +713,7 @@ const LiveRoom = () => {
       const connectionTimer = setTimeout(() => {
         participants.forEach(participant => {
           if (participant.user_id !== currentUser.id) {
-            console.log(`Checking connection with user ${participant.user_id}`);
+
 
             const existingConnection = peerConnectionsRef.current[participant.user_id];
             const connectionState = connectionStatesRef.current[participant.user_id];
