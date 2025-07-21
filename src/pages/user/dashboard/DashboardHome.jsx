@@ -1,66 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import axiosInstance from '../../../features/auth/axiosInstance'; // Use your axios instance
+import roomApi from '../../../api/roomApi'; 
 import { motion } from 'framer-motion';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Search, Star, TrendingUp, Users } from 'lucide-react';
 import RoomCard from '../../../components/dashboard/RoomCard';
 import CreateRoomDialog from '../../../components/dashboard/CreateRoomDialog';
+import { useSelector } from 'react-redux';
+import { useRoomActions } from './useRoomActions';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog';
 
-// Sample room data
-const recentRooms = [
-  {
-    id: '1',
-    title: 'IELTS Speaking Practice',
-    tags: ['English', 'IELTS', 'Practice'],
-    userCount: 4,
-    creator: {
-      name: 'Sarah Johnson',
-      avatar: 'https://i.pravatar.cc/150?img=1',
-      initials: 'SJ'
-    },
-    hasVideo: false
-  },
-  {
-    id: '2',
-    title: 'Spanish Conversation Club',
-    tags: ['Spanish', 'Beginner', 'Casual'],
-    userCount: 3,
-    creator: {
-      name: 'Miguel Ramos',
-      avatar: 'https://i.pravatar.cc/150?img=2',
-      initials: 'MR'
-    },
-    hasVideo: true
-  },
-];
-
-const suggestedRooms = [
-  {
-    id: '3',
-    title: 'English Debate Night',
-    tags: ['English', 'Debate', 'Advanced'],
-    userCount: 6,
-    creator: {
-      name: 'Alex Chen',
-      avatar: 'https://i.pravatar.cc/150?img=3',
-      initials: 'AC'
-    },
-    hasVideo: false
-  },
-  {
-    id: '4',
-    title: 'French for Beginners',
-    tags: ['French', 'Beginner', 'Learning'],
-    userCount: 2,
-    creator: {
-      name: 'Claire Dubois',
-      avatar: 'https://i.pravatar.cc/150?img=4',
-      initials: 'CD'
-    },
-    hasVideo: true
-  },
-];
 
 const DashboardHome = () => {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -70,6 +20,61 @@ const DashboardHome = () => {
     current_streak: 0,
     weekly_practice_hours: 0,
   });
+  const [roomTypes, setRoomTypes] = useState([]);
+  const [tags, setTags] = useState([]);
+  const [languages, setLanguages] = useState([]);
+
+  const [recentRooms, setRecentRooms] = useState([]);
+  const [suggestedRooms, setSuggestedRooms] = useState([]);
+  const [loadingRecent, setLoadingRecent] = useState(true);
+  const [loadingSuggested, setLoadingSuggested] = useState(true);
+  const reduxUser = useSelector((state) => state.auth.user);
+  let user = null;
+    if (reduxUser) {
+      if (typeof reduxUser === "string") {
+        try {
+          user = JSON.parse(reduxUser);
+        } catch {
+          user = null;
+        }
+      } else {
+        user = reduxUser;
+      }
+    }
+    const isPremium = user?.is_premium;
+
+  // Use shared room actions
+  const {
+    handleJoinRoom,
+    handleEditRoom,
+    closeEditDialog,
+    editingRoom,
+    editDialogOpen,
+    setEditDialogOpen,
+    formatTimeAgo,
+    showPasswordModal,
+    setShowPasswordModal,
+    passwordInput,
+    setPasswordInput,
+    joiningRoom,
+    setJoiningRoom,
+    handlePasswordSubmit,
+  } = useRoomActions();
+
+
+  const fetchRooms = () => {
+    setLoadingRecent(true);
+    roomApi.getRecentlyJoinedRooms()
+      .then(data => setRecentRooms(data))
+      .catch(() => setRecentRooms([]))
+      .finally(() => setLoadingRecent(false));
+  
+    setLoadingSuggested(true);
+    roomApi.getSuggestedRooms()
+      .then(data => setSuggestedRooms(data))
+      .catch(() => setSuggestedRooms([]))
+      .finally(() => setLoadingSuggested(false));
+  };
 
   useEffect(() => {
     axiosInstance.get('/profile/') // Adjust endpoint if needed
@@ -84,6 +89,43 @@ const DashboardHome = () => {
         console.log(err)
       });
   }, []);
+
+  // Fetch recent rooms
+  useEffect(() => {
+    setLoadingRecent(true);
+    roomApi.getRecentlyJoinedRooms()
+      .then(data => setRecentRooms(data))
+      .catch(() => setRecentRooms([]))
+      .finally(() => setLoadingRecent(false));
+  }, []);
+
+  // Fetch suggested rooms
+  useEffect(() => {
+    setLoadingSuggested(true);
+    roomApi.getSuggestedRooms()
+      .then(data => setSuggestedRooms(data))
+      .catch(() => setSuggestedRooms([]))
+      .finally(() => setLoadingSuggested(false));
+  }, []);
+
+    // Fetch modal data
+    useEffect(() => {
+      const fetchFilters = async () => {
+        try {
+          const [roomTypesData, tagsData, languagesData] = await Promise.all([
+            roomApi.getRoomTypes(),
+            roomApi.getTags(),
+            roomApi.getLanguages(),
+          ]);
+          setRoomTypes(roomTypesData);
+          setTags(tagsData);
+          setLanguages(languagesData);
+        } catch (err) {
+          // Optionally handle error
+        }
+      };
+      fetchFilters();
+    }, []);
 
   return (
     <>
@@ -163,12 +205,27 @@ const DashboardHome = () => {
         className="mb-8"
       >
         <h2 className="text-xl font-bold text-white mb-4">Recently Joined Rooms</h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {recentRooms.map((room, index) => (
-            <RoomCard key={room.id} room={room} index={index} />
-          ))}
-        </div>
+        {loadingRecent ? (
+          <div className="text-gray-400">Loading...</div>
+        ) : recentRooms.length === 0 ? (
+          <div className="text-gray-400">There is no room recently joined.</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {recentRooms.map((room, index) => (
+              <RoomCard
+                key={room.id}
+                room={room}
+                index={index}
+                onJoin={() => handleJoinRoom(room)}
+                isHost={user && room.host === user.user_id}
+                onEdit={() => handleEditRoom(room)}
+                showEdit={user && room.host === user.user_id}
+                disabled={room.participant_count >= room.max_participants}
+                timeAgo={formatTimeAgo(room.started_at)}
+              />
+            ))}
+          </div>
+        )}
       </motion.div>
 
       {/* Suggested Rooms Section */}
@@ -178,12 +235,27 @@ const DashboardHome = () => {
         transition={{ duration: 0.5, delay: 0.2 }}
       >
         <h2 className="text-xl font-bold text-white mb-4">Suggested For You</h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {suggestedRooms.map((room, index) => (
-            <RoomCard key={room.id} room={room} index={index} />
-          ))}
-        </div>
+        {loadingSuggested ? (
+          <div className="text-gray-400">Loading...</div>
+        ) : suggestedRooms.length === 0 ? (
+          <div className="text-gray-400">No suggestions.</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {suggestedRooms.map((room, index) => (
+              <RoomCard
+                key={room.id}
+                room={room}
+                index={index}
+                onJoin={() => handleJoinRoom(room)}
+                isHost={user && room.host === user.user_id}
+                onEdit={() => handleEditRoom(room)}
+                showEdit={user && room.host === user.user_id}
+                disabled={room.participant_count >= room.max_participants}
+                timeAgo={formatTimeAgo(room.started_at)}
+              />
+            ))}
+          </div>
+        )}
       </motion.div>
 
       {/* Mobile floating action button */}
@@ -201,7 +273,61 @@ const DashboardHome = () => {
       <CreateRoomDialog
         isOpen={createDialogOpen}
         onClose={() => setCreateDialogOpen(false)}
+        isPremium={isPremium}
+        roomTypes={roomTypes}
+        tags={tags}
+        languages={languages}
       />
+
+      {/* Edit Room Dialog */}
+      <CreateRoomDialog
+        isOpen={editDialogOpen}
+        onClose={closeEditDialog}
+        onRoomCreated={() => {
+          closeEditDialog();
+          fetchRooms();
+        }}
+        initialRoom={editingRoom}
+        mode="edit"
+        isPremium={isPremium}
+        roomTypes={roomTypes}
+        tags={tags}
+        languages={languages}
+      />
+
+      {/* Private Room Password Modal */}
+      <Dialog open={showPasswordModal} onOpenChange={setShowPasswordModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enter Room Password</DialogTitle>
+          </DialogHeader>
+          <Input
+            type="password"
+            placeholder="Password"
+            value={passwordInput}
+            onChange={e => setPasswordInput(e.target.value)}
+            className="mb-4"
+          />
+          <DialogFooter>
+            <Button
+              onClick={handlePasswordSubmit}
+              disabled={!passwordInput.trim()}
+            >
+              Join Room
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setShowPasswordModal(false);
+                setPasswordInput('');
+                setJoiningRoom(null);
+              }}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

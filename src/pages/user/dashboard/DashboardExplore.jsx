@@ -13,6 +13,8 @@ import { roomApi } from '../../../api/roomApi';
 import CreateRoomDialog from '../../../components/dashboard/CreateRoomDialog';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog';
 import { toast } from '../../../hooks/use-toast';
+import { useRoomActions } from './useRoomActions';
+import RoomCard from '../../../components/dashboard/RoomCard';
 
 
 const DashboardExplore = () => {
@@ -32,13 +34,22 @@ const DashboardExplore = () => {
   const [selectedRoomType, setSelectedRoomType] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
 
-  // State for password modal
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [passwordInput, setPasswordInput] = useState('');
-  const [joiningRoom, setJoiningRoom] = useState(null); // room being joined
-
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editingRoom, setEditingRoom] = useState(null);
+  const {
+    handleJoinRoom,
+    handleEditRoom,
+    closeEditDialog,
+    editingRoom,
+    editDialogOpen,
+    setEditDialogOpen,
+    formatTimeAgo,
+    showPasswordModal,
+    setShowPasswordModal,
+    passwordInput,
+    setPasswordInput,
+    joiningRoom,
+    setJoiningRoom,
+    handlePasswordSubmit,
+  } = useRoomActions();
 
   const reduxUser = useSelector((state) => state.auth.user);
   let user = null;
@@ -54,7 +65,7 @@ const DashboardExplore = () => {
     }
   }
   const isPremium = user?.is_premium;
-  console.log("isPremium:",isPremium, typeof isPremium)
+
 
 
 
@@ -139,64 +150,13 @@ const DashboardExplore = () => {
     setFilteredRooms(filtered);
   };
 
-  const handleJoinRoom = async (room) => {
-    if (room.is_private) {
-      setJoiningRoom(room);
-      setShowPasswordModal(true);
-      return;
-    }
-    try {
-      await roomApi.joinRoom(room.id);
-      navigate(`/room/${room.id}`);
-    } catch (err) {
-      toast({
-        title: "Failed to join room",
-        description: err.response?.data?.error || "Room may have ended.",
-        variant: "destructive",
-        action: (
-          <Button onClick={loadRoomData} variant="outline" size="sm">
-            Reload Live Rooms
-          </Button>
-        )
-      });
-    }
-  };
-
-  const handlePasswordSubmit = async () => {
-    if (!joiningRoom) return;
-    try {
-      await roomApi.joinRoom(joiningRoom.id, passwordInput);
-      setShowPasswordModal(false);
-      setPasswordInput('');
-      setJoiningRoom(null);
-      navigate(`/room/${joiningRoom.id}`);
-    } catch (err) {
-      toast({
-        title: "Invalid Password",
-        description: err.response?.data?.error || "Room may have ended.",
-        variant: "destructive",
-        action: (
-          <Button onClick={loadRoomData} variant="outline" size="sm">
-            Reload Live Rooms
-          </Button>
-        )
-      });
-    }
-  };
-
   const handleRoomCreated = (newRoom) => {
     setRooms(prev => [newRoom, ...prev]);
     setCreateDialogOpen(false);
-    // Optionally navigate to the new room
-    console.log("New room id:", newRoom.id)
-    // navigate(`/room/${newRoom.id}`);
+
   };
 
-  // Edit room handler
-  const handleEditRoom = (room) => {
-    setEditingRoom(room);
-    setEditDialogOpen(true);
-  };
+
 
   // Update room in list after edit
   const handleRoomEdited = (updatedRoom) => {
@@ -210,17 +170,6 @@ const DashboardExplore = () => {
       description: "Your room has been updated successfully.",
       variant: "default"
     });
-  };
-
-  const formatTimeAgo = (dateString) => {
-    const now = new Date();
-    const date = new Date(dateString);
-    const diffInMinutes = Math.floor((now - date) / (1000 * 60));
-
-    if (diffInMinutes < 1) return 'Just now';
-    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
-    return `${Math.floor(diffInMinutes / 1440)}d ago`;
   };
 
   const getAvatarFallback = (name) => {
@@ -335,102 +284,20 @@ const DashboardExplore = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredRooms.map((room) => {
+          {filteredRooms.map((room, index) => {
             const isHost = user && room.host === user.user_id;
             return (
-              <Card key={room.id} className="relative backdrop-blur-xl bg-white/5 border border-white/10 hover:border-neon-purple/50 transition-all overflow-hidden group">
-                {/* Edit button for host */}
-                {isHost && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute top-2 right-2 z-10"
-                    onClick={() => handleEditRoom(room)}
-                    title="Edit Room"
-                  >
-                    <Pencil className="h-5 w-5 text-neon-purple" />
-                  </Button>
-                )}
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between">
-                    <h3 className="text-xl font-semibold text-white group-hover:text-neon-purple transition-colors flex-1 mr-2">
-                      {room.title}
-                    </h3>
-                    {room.is_private && (
-                      <Lock className="h-4 w-4 text-yellow-400 flex-shrink-0" />
-                    )}
-                  </div>
-
-                  {room.description && (
-                    <p className="text-sm text-gray-400 mt-1 line-clamp-2">
-                      {room.description}
-                    </p>
-                  )}
-
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {room.language_name && (
-                      <Badge variant="outline" className="bg-neon-blue/10 border-neon-blue/20 text-neon-blue">
-                        <Globe className="h-3 w-3 mr-1" />
-                        {room.language_name}
-                      </Badge>
-                    )}
-                    {room.room_type_name && (
-                      <Badge variant="outline" className="bg-neon-purple/10 border-neon-purple/20 text-neon-purple">
-                        {room.room_type_name}
-                      </Badge>
-                    )}
-                    {room.tags?.slice(0, 2).map((tag) => (
-                      <Badge key={tag.id} variant="outline" className="bg-white/5 border-white/10 text-gray-300">
-                        {tag.name}
-                      </Badge>
-                    ))}
-                    {room.tags?.length > 2 && (
-                      <Badge variant="outline" className="bg-white/5 border-white/10 text-gray-300">
-                        +{room.tags.length - 2}
-                      </Badge>
-                    )}
-                  </div>
-                </CardHeader>
-
-                <CardContent className="pb-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center">
-                      <Avatar className="h-8 w-8 border border-white/10">
-                        <AvatarFallback className="bg-gradient-to-r from-neon-purple to-neon-blue text-white text-xs">
-                          {getAvatarFallback(room.host_username)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm text-gray-400 ml-2">by {room.host_username}</span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center">
-                        <Users className="h-4 w-4 text-gray-400 mr-1" />
-                        <span className="text-sm text-gray-400">
-                          {room.participant_count || 0}/{room.max_participants}
-                        </span>
-                      </div>
-                      <Mic className="h-4 w-4 text-green-400" />
-                      <Video className="h-4 w-4 text-blue-400" />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center text-xs text-gray-500">
-                    <Clock className="h-3 w-3 mr-1" />
-                    Started {formatTimeAgo(room.started_at)}
-                  </div>
-                </CardContent>
-
-                <CardFooter>
-                  <Button
-                    onClick={() => handleJoinRoom(room)}
-                    disabled={room.participant_count >= room.max_participants}
-                    className="w-full bg-gradient-to-r from-neon-purple to-neon-blue text-white hover:from-neon-blue hover:to-neon-purple transition-all hover:glow-purple disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {room.participant_count >= room.max_participants ? 'Room Full' : 'Join Room'}
-                  </Button>
-                </CardFooter>
-              </Card>
+              <RoomCard
+                key={room.id}
+                room={room}
+                index={index}
+                onJoin={() => handleJoinRoom(room)}
+                isHost={isHost}
+                onEdit={() => handleEditRoom(room)}
+                showEdit={isHost}
+                disabled={room.participant_count >= room.max_participants}
+                timeAgo={formatTimeAgo(room.started_at)}
+              />
             );
           })}
         </div>
@@ -475,17 +342,17 @@ const DashboardExplore = () => {
 
       <CreateRoomDialog
         isOpen={editDialogOpen}
-        onClose={() => {
-          setEditDialogOpen(false);
-          setEditingRoom(null);
+        onClose={closeEditDialog}
+        onRoomCreated={() => {
+          closeEditDialog();
+          loadRoomData(); 
         }}
-        onRoomCreated={handleRoomEdited}
-        roomTypes={roomTypes}
-        tags={tags}
-        languages={languages}
         initialRoom={editingRoom}
         mode="edit"
         isPremium={isPremium}
+        roomTypes={roomTypes}
+        tags={tags}
+        languages={languages}
       />
 
       <Dialog open={showPasswordModal} onOpenChange={setShowPasswordModal}>

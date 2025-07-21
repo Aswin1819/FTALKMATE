@@ -479,7 +479,7 @@ const UserProfile = () => {
                     <p className="text-xs text-gray-400">Conversational Explorer</p>
                   </div>
                   <Badge className="bg-gradient-to-r from-neon-purple to-neon-blue text-white">
-                    {profile.streak} Day Streak
+                    {profile.current_streak} Day Streak
                   </Badge>
                 </div>
                 

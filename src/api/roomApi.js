@@ -161,6 +161,18 @@ export const roomApi = {
     );
     return response.data;
   },
+  getRecentlyJoinedRooms: async () => {
+    const response = await axiosInstance.get(
+      `http://127.0.0.1:8000/api/rooms/recently-joined/`);
+    return response.data;
+
+  },
+  getSuggestedRooms: async () => {
+    const response = await axiosInstance.get(
+      `http://127.0.0.1:8000/api/rooms/suggested/`);
+    return response.data;
+
+  }
 
 };
 
