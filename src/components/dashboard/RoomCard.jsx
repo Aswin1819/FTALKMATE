@@ -25,6 +25,8 @@ const RoomCard = ({
       className="h-full"
     >
       <Card className="relative h-full flex flex-col overflow-hidden bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 hover:scale-105">
+
+
         {showEdit && (
           <Button
             variant="ghost"
@@ -38,12 +40,25 @@ const RoomCard = ({
         )}
         <CardHeader className="pb-2">
           <div className="flex items-start justify-between">
-            <h3 className="text-xl font-semibold text-white group-hover:text-neon-purple transition-colors flex-1 mr-2">
-              {room.title}
-            </h3>
-            {room.is_private && (
-              <Lock className="h-4 w-4 text-yellow-400 flex-shrink-0" />
-            )}
+            <div className="flex items-center flex-1 mr-2">
+              {room.is_private && (
+                <Lock className="h-4 w-4 text-yellow-400 flex-shrink-0 mr-1" />
+              )}
+              <h3 className="text-xl font-semibold text-white group-hover:text-neon-purple transition-colors">
+                {room.title}
+              </h3>
+            </div>
+            {/* {showEdit && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="z-10"
+                onClick={onEdit}
+                title="Edit Room"
+              >
+                <Pencil className="h-5 w-5 text-neon-purple" />
+              </Button>
+            )} */}
           </div>
           {room.description && (
             <p className="text-sm text-gray-400 mt-1 line-clamp-2">

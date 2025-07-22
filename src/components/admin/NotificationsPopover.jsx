@@ -8,6 +8,7 @@ import {
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
 import { ScrollArea } from '../../components/ui/scroll-area';
+import { useNavigate } from 'react-router-dom';
 
 const getIconForType = (type) => {
   switch (type) {
@@ -60,6 +61,7 @@ const NotificationsPopover = ({
   onSeeAllNotifications,
   className
 }) => {
+  const navigate = useNavigate();
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
@@ -93,35 +95,56 @@ const NotificationsPopover = ({
         <ScrollArea className="h-[400px]">
           <div className="p-2">
             {notifications.length > 0 ? (
-              notifications.map((notification) => (
-                <div 
-                  key={notification.id}
-                  className={cn(
-                    "flex items-start p-3 rounded-lg mb-1 transition-colors",
-                    notification.read 
-                      ? "hover:bg-white/5" 
-                      : "bg-white/5 hover:bg-white/10"
-                  )}
-                >
-                  {getIconForType(notification.type)}
-                  <div className="ml-3 flex-1">
-                    <div className="flex items-start justify-between">
-                      <h4 className={cn(
-                        "text-sm font-medium",
-                        notification.read ? "text-gray-300" : "text-white"
-                      )}>
-                        {notification.title}
-                      </h4>
-                      <span className="text-xs text-gray-400 ml-2">
-                        {notification.time}
-                      </span>
+              notifications.map((notification) => {
+                const content = (
+                  <>
+                    {getIconForType(notification.type)}
+                    <div className="ml-3 flex-1">
+                      <div className="flex items-start justify-between">
+                        <h4 className={cn(
+                          "text-sm font-medium",
+                          notification.read ? "text-gray-300" : "text-white"
+                        )}>
+                          {notification.title}
+                        </h4>
+                        <span className="text-xs text-gray-400 ml-2">
+                          {notification.time}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {notification.message}
+                      </p>
                     </div>
-                    <p className="text-xs text-gray-400 mt-1">
-                      {notification.message}
-                    </p>
+                  </>
+                );
+                return notification.link ? (
+                  <div
+                    key={notification.id}
+                    className={cn(
+                      "flex items-start p-3 rounded-lg mb-1 transition-colors cursor-pointer",
+                      notification.read 
+                        ? "hover:bg-white/5" 
+                        : "bg-white/5 hover:bg-white/10"
+                    )}
+                    onClick={() => notification.link && navigate(notification.link)}
+                    style={{ textDecoration: 'none' }}
+                  >
+                    {content}
                   </div>
-                </div>
-              ))
+                ) : (
+                  <div
+                    key={notification.id}
+                    className={cn(
+                      "flex items-start p-3 rounded-lg mb-1 transition-colors",
+                      notification.read 
+                        ? "hover:bg-white/5" 
+                        : "bg-white/5 hover:bg-white/10"
+                    )}
+                  >
+                    {content}
+                  </div>
+                );
+              })
             ) : (
               <div className="flex flex-col items-center justify-center py-8 px-4">
                 <div className="h-12 w-12 rounded-full bg-white/5 flex items-center justify-center text-gray-400 mb-3">

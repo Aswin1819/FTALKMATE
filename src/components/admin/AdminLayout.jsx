@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -34,43 +34,20 @@ import {
 import NotificationsPopover from './NotificationsPopover';
 import { useDispatch ,useSelector} from 'react-redux';
 import { adminLogout } from '../../features/auth/adminSlice';
+import adminInstance from '../../features/auth/adminInstance';
 
-const adminNotifications = [
-  {
-    id: '1',
-    title: 'New Report',
-    message: 'A new moderation report has been submitted',
-    time: '5m ago',
-    read: false,
-    type: 'alert'
-  },
-  {
-    id: '2',
-    title: 'New User Registration',
-    message: '5 new users registered in the last hour',
-    time: '1h ago',
-    read: false,
-    type: 'follow'
-  },
-  {
-    id: '3',
-    title: 'System Update',
-    message: 'Platform update completed successfully',
-    time: '2h ago',
-    read: true,
-    type: 'system'
-  }
-];
+
 
 const AdminLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [notifications, setNotifications] = useState(adminNotifications);
+  const [notifications, setNotifications] = useState([]);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const dispatch = useDispatch();
   const {admin} = useSelector((state)=>state.admin)
   
+
   const sidebarItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/admin/dashboard" },
     { icon: Users, label: "User Management", path: "/admin/users" },
@@ -79,6 +56,13 @@ const AdminLayout = () => {
     { icon: CreditCard, label: "Subscriptions", path: "/admin/subscriptions" },
     { icon: Tag, label: "Taxonomy", path: "/admin/taxonomy" },
   ];
+
+
+  useEffect(() => {
+    adminInstance.get('/notifications/').then(res => {
+      setNotifications(res.data);
+    });
+  },[]);
 
   const getCurrentPageTitle = () => {
     const currentItem = sidebarItems.find(item => 

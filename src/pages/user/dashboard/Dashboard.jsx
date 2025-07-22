@@ -30,7 +30,6 @@ const Dashboard = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-  const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
   const dispatch = useDispatch();
   const user = useSelector((state) => state.auth.user); 
   
@@ -59,7 +58,7 @@ const Dashboard = () => {
 
   const handleSeeAllNotifications = () => {
     console.log('Navigate to all notifications');
-    setShowNotificationsDropdown(false);
+    
     // Implementation would navigate to a notifications page
   };
 
@@ -119,83 +118,13 @@ const Dashboard = () => {
           
           {/* Right Section */}
           <div className="flex items-center space-x-4">
-            {/* Notifications Dropdown */}
-            <DropdownMenu 
-              open={showNotificationsDropdown}
-              onOpenChange={setShowNotificationsDropdown}
-            >
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="relative h-10 w-10 rounded-full bg-white/5 hover:bg-white/10"
-                >
-                  <BellIcon className="h-5 w-5 text-white" />
-                  {unreadNotificationsCount > 0 && (
-                    <Badge 
-                      className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center bg-neon-purple text-white text-xs"
-                    >
-                      {unreadNotificationsCount}
-                    </Badge>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent 
-                align="end" 
-                className="w-80 bg-[#1A0E29]/95 backdrop-blur-xl border-white/10 text-white"
-              >
-                <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-                  <h3 className="text-base font-medium">Notifications</h3>
-                  {unreadNotificationsCount > 0 && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="text-xs text-neon-purple hover:text-neon-purple/90 hover:bg-white/5"
-                      onClick={handleMarkAllAsRead}
-                    >
-                      Mark all as read
-                    </Button>
-                  )}
-                </div>
-                <div className="max-h-80 overflow-y-auto">
-                  {notifications.length > 0 ? (
-                    notifications.map((notification) => (
-                      <DropdownMenuItem 
-                        key={notification.id}
-                        className={`p-3 focus:bg-white/5 focus:text-white cursor-default ${
-                          !notification.read ? 'bg-white/5' : ''
-                        }`}
-                      >
-                        <div className="w-full">
-                          <div className="flex justify-between items-start">
-                            <span className="font-medium">
-                              {notification.title}
-                              {!notification.read && (
-                                <span className="inline-block h-2 w-2 rounded-full bg-neon-purple ml-2"></span>
-                              )}
-                            </span>
-                            <span className="text-xs text-gray-400">{notification.time}</span>
-                          </div>
-                          <p className="text-sm text-gray-300 mt-1">{notification.message}</p>
-                        </div>
-                      </DropdownMenuItem>
-                    ))
-                  ) : (
-                    <div className="p-4 text-center text-gray-400">
-                      No notifications
-                    </div>
-                  )}
-                </div>
-                <DropdownMenuSeparator className="bg-white/10" />
-                <DropdownMenuItem 
-                  className="p-3 text-center text-neon-purple hover:bg-white/5 hover:text-neon-purple/90 cursor-pointer"
-                  onClick={handleSeeAllNotifications}
-                >
-                  See all notifications
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            
+            {/* Notifications Popover */}
+            <NotificationsPopover
+              notifications={notifications}
+              onMarkAllAsRead={handleMarkAllAsRead}
+              onSeeAllNotifications={handleSeeAllNotifications}
+            />
+
             <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center text-white font-medium">
               {user?.username?.slice(0, 2)?.toUpperCase() || "U"}
             </div>
