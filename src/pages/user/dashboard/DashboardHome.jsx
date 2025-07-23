@@ -29,7 +29,7 @@ const DashboardHome = () => {
   const [loadingRecent, setLoadingRecent] = useState(true);
   const [loadingSuggested, setLoadingSuggested] = useState(true);
   const [isPremium, setIsPremium] = useState(false);
-
+  const user = useSelector((state)=> state.auth.user)
   // Use shared room actions
   const {
     handleJoinRoom,
@@ -72,6 +72,7 @@ const DashboardHome = () => {
           weekly_practice_hours: res.data.weekly_practice_hours ?? 0,
         });
         setIsPremium(res.data.is_premium);
+        console.log("ispremium:",isPremium);
       })
       .catch(err => {
         console.log(err)

@@ -50,8 +50,23 @@ const formSchema = z.object({
   is_private: z.boolean().default(false),
   password: z.string().optional(),
   tags: z.array(z.number()).default([]),
+}).superRefine((data, ctx) => {
+  if (data.is_private) {
+    if (!data.password || data.password.length < 5) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['password'],
+        message: 'Password must be at least 5 characters.',
+      });
+    } else if (/\s/.test(data.password)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['password'],
+        message: 'Password cannot contain spaces.',
+      });
+    }
+  }
 });
-
 
 
 const CreateRoomDialog = ({

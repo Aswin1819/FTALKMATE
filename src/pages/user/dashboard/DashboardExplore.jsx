@@ -1,11 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Users, Mic, Video, Clock, Globe, Lock, Pencil } from 'lucide-react';
+import { Search, Filter} from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
-import { Card, CardContent, CardFooter, CardHeader } from '../../../components/ui/card';
-import { Badge } from '../../../components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '../../../components/ui/avatar';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
@@ -15,6 +12,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { toast } from '../../../hooks/use-toast';
 import { useRoomActions } from './useRoomActions';
 import RoomCard from '../../../components/dashboard/RoomCard';
+import axiosInstance from '../../../features/auth/axiosInstance';
 
 
 const DashboardExplore = () => {
@@ -33,7 +31,7 @@ const DashboardExplore = () => {
   const [selectedLanguage, setSelectedLanguage] = useState('all');
   const [selectedRoomType, setSelectedRoomType] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
-
+  const user = useSelector((state)=> state.auth.user)
   const [isPremium, setIsPremium] = useState(false);
 
   const {
@@ -78,7 +76,6 @@ const DashboardExplore = () => {
       setRooms(response);
     } catch (err) {
       setError('Failed to load rooms. Please try again.');
-      console.error('Error loading rooms:', err);
     } finally {
       setLoading(false);
     }
@@ -90,6 +87,7 @@ const DashboardExplore = () => {
         const res = await axiosInstance.get('/current-user/');
         setIsPremium(res.data.user.profile_summary.is_premium); // or res.data.profile.is_premium if nested
       } catch (error) {
+        console.log("isPremium:",isPremium);
         setIsPremium(false);
       }
     };
