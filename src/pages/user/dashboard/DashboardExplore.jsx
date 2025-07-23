@@ -34,6 +34,8 @@ const DashboardExplore = () => {
   const [selectedRoomType, setSelectedRoomType] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
 
+  const [isPremium, setIsPremium] = useState(false);
+
   const {
     handleJoinRoom,
     handleEditRoom,
@@ -51,20 +53,7 @@ const DashboardExplore = () => {
     handlePasswordSubmit,
   } = useRoomActions();
 
-  const reduxUser = useSelector((state) => state.auth.user);
-  let user = null;
-  if (reduxUser) {
-    if (typeof reduxUser === "string") {
-      try {
-        user = JSON.parse(reduxUser);
-      } catch {
-        user = null;
-      }
-    } else {
-      user = reduxUser;
-    }
-  }
-  const isPremium = user?.is_premium;
+  
 
 
 
@@ -94,6 +83,18 @@ const DashboardExplore = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const res = await axiosInstance.get('/current-user/');
+        setIsPremium(res.data.user.profile_summary.is_premium); // or res.data.profile.is_premium if nested
+      } catch (error) {
+        setIsPremium(false);
+      }
+    };
+    fetchProfile();
+  }, []);
 
   const loadFilterData = async () => {
     try {

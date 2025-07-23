@@ -7,56 +7,61 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '..
 import Header from '../../components/index/Header';
 import { toast } from '../../hooks/use-toast';
 import axiosInstance from '../../features/auth/axiosInstance';
+import { setUser } from '../../features/auth/authSlice';
+import { useDispatch } from 'react-redux';
 
 const Subscription = () => {
     const [plans, setPlans] = useState([]);
-    const [user, setUser] = useState(null);
+    const [user, setLocalUser] = useState(null);
     const [userSubscription, setUserSubscription] = useState(null);
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
     const [paymentLoading, setPaymentLoading] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState(null);
+    const dispatch = useDispatch();
 
+    const fetchPlans = async () => {
+        try {
+            const res = await axiosInstance.get('/subscription/');
+            setPlans(res.data || []);
+        } catch {
+            toast({ title: 'Error', description: 'Failed to fetch plans', variant: 'destructive' });
+        }
+    };
+    const fetchUser = async () => {
+        try {
+            const res = await axiosInstance.get('/current-user/');
+            setLocalUser(res.data.user);
+        } catch {
+            setLocalUser(null);
+        }
+    };
+    const fetchUserSubscription = async () => {
+        try {
+            const res = await axiosInstance.get('/profile/');
+            const profileSub = res.data.subscription;
+            setUserSubscription(profileSub || null);
+        } catch {
+            setUserSubscription(null);
+        }
+    };
+    const fetchHistory = async () => {
+        try {
+            const res = await axiosInstance.get('/subscription-history/');
+            setHistory(res.data || []);
+        } catch {
+            setHistory([]);
+        }
+    };
     useEffect(() => {
-        const fetchPlans = async () => {
-            try {
-                const res = await axiosInstance.get('/subscription/');
-                setPlans(res.data || []);
-            } catch {
-                toast({ title: 'Error', description: 'Failed to fetch plans', variant: 'destructive' });
-            }
-        };
-        const fetchUser = async () => {
-            try {
-                const res = await axiosInstance.get('/current-user/');
-                setUser(res.data.user);
-            } catch {
-                setUser(null);
-            }
-        };
-        const fetchUserSubscription = async () => {
-            try {
-                const res = await axiosInstance.get('/profile/');
-                const profileSub = res.data.subscription;
-                setUserSubscription(profileSub || null);
-            } catch {
-                setUserSubscription(null);
-            }
-        };
-        const fetchHistory = async () => {
-            try {
-                const res = await axiosInstance.get('/subscription-history/');
-                setHistory(res.data || []);
-            } catch {
-                setHistory([]);
-            }
-        };
         fetchPlans();
         fetchUser();
         fetchUserSubscription();
         fetchHistory();
         setLoading(false);
     }, []);
+
+    
 
     const getFeatures = (plan) => {
         if (!plan || !plan.features) return [];
@@ -111,9 +116,11 @@ const Subscription = () => {
                             razorpay_signature: response.razorpay_signature,
                             plan_id: plan_id,
                         });
+                        await fetchUserSubscription();
+                        await fetchHistory();
                         toast({ title: 'Success', description: 'Subscription activated!' });
-                        window.location.reload();
-                    } catch {
+                    } catch (err) {
+                        console.error(err);
                         toast({ title: 'Payment Failed', description: 'Could not verify payment.', variant: 'destructive' });
                     }
                 },
@@ -145,53 +152,90 @@ const Subscription = () => {
         }
     }, []);
 
-    const PlanCard = ({ plan, isCurrent, canUpgrade, onUpgrade }) => (
-        <Card className={`transition-all ${isCurrent ? 'border-2 border-neon-purple/80 shadow-neon-purple/30' : 'border-white/10'} bg-[#1A0E29]/40 backdrop-blur-md shadow-lg text-white relative`}>
-            {isCurrent && (
-                <Badge className="absolute top-4 right-4 bg-neon-purple text-white z-10">Current Plan</Badge>
-            )}
-            <CardHeader>
-                <CardTitle>{plan.name}</CardTitle>
-                <CardDescription className="text-gray-400">
-                    {plan.price === 0 ? '₹0 / month' : `₹${plan.price} / month`}
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-4">
-                <ul className="space-y-3">
-                    {getFeatures(plan).map((feature, idx) => (
-                        <li key={idx} className="flex items-start">
-                            {feature.disabled ? (
-                                <X className="h-5 w-5 text-gray-500 mr-3 flex-shrink-0 mt-0.5" />
-                            ) : (
-                                <Check className={`h-5 w-5 ${isCurrent ? 'text-neon-purple' : 'text-green-400'} mr-3 flex-shrink-0 mt-0.5`} />
-                            )}
-                            <span className={feature.disabled ? 'text-gray-500' : ''}>{feature.text}</span>
-                        </li>
-                    ))}
-                </ul>
-            </CardContent>
-            <CardFooter>
-                {isCurrent ? (
-                    <Button disabled className="w-full bg-neon-purple/70">
-                        Current Plan
-                    </Button>
-                ) : canUpgrade ? (
-                    <Button
-                        onClick={() => onUpgrade(plan)}
-                        loading={paymentLoading && selectedPlan?.id === plan.id}
-                        className="w-full bg-neon-purple hover:bg-neon-purple/90 hover:glow-purple"
-                    >
-                        Upgrade Now
-                    </Button>
-                ) : (
-                    <Button disabled className="w-full bg-gray-700 cursor-not-allowed">
-                        Not Available
-                    </Button>
-                )}
-            </CardFooter>
+    const getDaysRemaining = () => {
+        if (!userSubscription || !userSubscription.end_date) return null;
+        const end = new Date(userSubscription.end_date);
+        const now = new Date();
+        const diff = Math.max(0, Math.ceil((end - now) / (1000 * 60 * 60 * 24)));
+        return diff;
+    };
 
-        </Card>
-    );
+    const getDiscountForPlan = (plan) => {
+        if (!userSubscription || !userSubscription.plan || !userSubscription.end_date) return 0;
+        const currentPlan = userSubscription.plan;
+        if (parseFloat(plan.price) <= parseFloat(currentPlan.price)) return 0;
+
+        const now = new Date();
+        const end = new Date(userSubscription.end_date);
+        const remainingDays = Math.max(0, Math.floor((end - now) / (1000 * 60 * 60 * 24)));
+        const dailyRate = parseFloat(currentPlan.price) / parseInt(currentPlan.duration_days, 10);
+        const discount = dailyRate * remainingDays;
+        return Math.round(discount * 100) / 100; // round to 2 decimals
+    };
+
+    const getFinalPriceForPlan = (plan) => {
+        const discount = getDiscountForPlan(plan);
+        return Math.max(0, parseFloat(plan.price) - discount).toFixed(2);
+    };
+
+    const PlanCard = ({ plan, isCurrent, canUpgrade, onUpgrade }) => {
+        const discount = getDiscountForPlan(plan);
+        const finalPrice = getFinalPriceForPlan(plan);
+
+        return (
+            <Card className={`transition-all ${isCurrent ? 'border-2 border-neon-purple/80 shadow-neon-purple/30' : 'border-white/10'} bg-[#1A0E29]/40 backdrop-blur-md shadow-lg text-white relative`}>
+                {isCurrent && (
+                    <Badge className="absolute top-4 right-4 bg-neon-purple text-white z-10">Current Plan</Badge>
+                )}
+                <CardHeader>
+                    <CardTitle>{plan.name}</CardTitle>
+                    <CardDescription className="text-gray-400">
+                        {plan.price === 0 ? '₹0 / month' : `₹${plan.price} / month`}
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-4">
+                    <ul className="space-y-3">
+                        {getFeatures(plan).map((feature, idx) => (
+                            <li key={idx} className="flex items-start">
+                                {feature.disabled ? (
+                                    <X className="h-5 w-5 text-gray-500 mr-3 flex-shrink-0 mt-0.5" />
+                                ) : (
+                                    <Check className={`h-5 w-5 ${isCurrent ? 'text-neon-purple' : 'text-green-400'} mr-3 flex-shrink-0 mt-0.5`} />
+                                )}
+                                <span className={feature.disabled ? 'text-gray-500' : ''}>{feature.text}</span>
+                            </li>
+                        ))}
+                        {discount > 0 && (
+                            <div className="text-green-400 text-sm mt-2">
+                                Discounted: <span className="font-bold">₹{finalPrice}</span>
+                                <span className="ml-2 text-gray-400 line-through">₹{plan.price}</span>
+                            </div>
+                        )}
+                    </ul>
+                </CardContent>
+                <CardFooter>
+                    {isCurrent ? (
+                        <Button disabled className="w-full bg-neon-purple/70">
+                            Current Plan
+                        </Button>
+                    ) : canUpgrade ? (
+                        <Button
+                            onClick={() => onUpgrade(plan)}
+                            loading={paymentLoading && selectedPlan?.id === plan.id}
+                            className="w-full bg-neon-purple hover:bg-neon-purple/90 hover:glow-purple"
+                        >
+                            Upgrade Now
+                        </Button>
+                    ) : (
+                        <Button disabled className="w-full bg-gray-700 cursor-not-allowed">
+                            Not Available
+                        </Button>
+                    )}
+                </CardFooter>
+
+            </Card>
+        );
+    };
 
     const currentPlan = getCurrentPlan();
 
@@ -230,6 +274,14 @@ const Subscription = () => {
                                             <span className={feature.disabled ? 'text-gray-500' : ''}>{feature.text}</span>
                                         </li>
                                     ))}
+                                    {getDaysRemaining() !== null && (
+                                        <li key="days-remaining" className="flex items-start">
+                                            <Check className="h-5 w-5 text-neon-purple mr-3 flex-shrink-0 mt-0.5" />
+                                            <span className="text-gray-400">
+                                                {getDaysRemaining()} day{getDaysRemaining() === 1 ? '' : 's'} remaining
+                                            </span>
+                                        </li>
+                                    )}
                                 </ul>
                             </CardContent>
                         </Card>
@@ -257,43 +309,40 @@ const Subscription = () => {
                     {history.length > 0 && (
                         <div className="text-white mt-12">
                             <h2 className="text-2xl font-semibold mb-4">Subscription History</h2>
-                            <ul className="space-y-3">
-                                {history.map((entry, idx) => {
-                                    const startDate = new Date(entry.start_date);
-                                    const endDate = new Date(entry.end_date);
-
-                                    const formatDate = (date) => {
-                                        const day = String(date.getDate()).padStart(2, '0');
-                                        const month = String(date.getMonth() + 1).padStart(2, '0');
-                                        const year = date.getFullYear();
-                                        return `${day}/${month}/${year}`;
-                                    };
-
-    
-
-                                    return (
-                                        <li
-                                            key={idx}
-                                            className="bg-[#1A0E29]/60 p-4 rounded-md border border-white/10"
-                                        >
-                                            <div>
-                                                <strong>Plan:</strong> {entry.plan.name}
-                                            </div>
-                                            <div>
-                                                <strong>Price:</strong> ₹{entry.plan.price}
-                                            </div>
-                                            <div>
-                                                <strong>Start:</strong> {formatDate(startDate)}
-                                            </div>
-                                            <div>
-                                                <strong>End:</strong> {formatDate(endDate)}
-                                            </div>
-                                
-                                        </li>
-                                    );
-                                })}
-                            </ul>
-
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full bg-[#1A0E29]/60 rounded-md border border-white/10">
+                                    <thead>
+                                        <tr>
+                                            <th className="px-4 py-2 text-left">Plan</th>
+                                            <th className="px-4 py-2 text-left">Price</th>
+                                            <th className="px-4 py-2 text-left">Start</th>
+                                            <th className="px-4 py-2 text-left">End</th>
+                                            <th className="px-4 py-2 text-left">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {history.map((entry, idx) => {
+                                            const startDate = new Date(entry.start_date);
+                                            const endDate = new Date(entry.end_date);
+                                            const formatDate = (date) => {
+                                                const day = String(date.getDate()).padStart(2, '0');
+                                                const month = String(date.getMonth() + 1).padStart(2, '0');
+                                                const year = date.getFullYear();
+                                                return `${day}/${month}/${year}`;
+                                            };
+                                            return (
+                                                <tr key={idx} className="border-t border-white/10">
+                                                    <td className="px-4 py-2">{entry.plan.name}</td>
+                                                    <td className="px-4 py-2">₹{entry.plan.price}</td>
+                                                    <td className="px-4 py-2">{formatDate(startDate)}</td>
+                                                    <td className="px-4 py-2">{formatDate(endDate)}</td>
+                                                    <td className="px-4 py-2">{entry.payment_status}</td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     )}
                 </div>
