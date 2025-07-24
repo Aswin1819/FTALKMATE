@@ -75,9 +75,11 @@
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",
     "postcss": "^8.4.47",
-    "rollup": "npm:@rollup/browser",
     "tailwindcss": "^3.4.11",
     "tailwindcss-animate": "^1.0.7",
     "vite": "^6.3.1"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "^4.25.0"
   }
 }
