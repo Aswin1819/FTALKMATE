@@ -71,9 +71,27 @@ const onSubmit = (values) => {
       navigate('/otp-verification', { state: { email: values.email } });
     })
     .catch((err) => {
+      console.log("Full error object:", err);
+    
+      let description = "Something went wrong. Please try again.";
+    
+      // If the error is a plain object with error fields (like { email: [...] })
+      if (err && typeof err === "object" && err !== null) {
+        const firstKey = Object.keys(err)[0];
+        if (firstKey && Array.isArray(err[firstKey])) {
+          description = err[firstKey][0];
+        } else if (typeof err[firstKey] === "string") {
+          description = err[firstKey];
+        } else if (typeof err.detail === "string") {
+          description = err.detail;
+        }
+      } else if (err?.message) {
+        description = err.message;
+      }
+    
       toast({
         title: "Registration Failed",
-        description: err?.message || "Something went wrong. Please try again.",
+        description,
         variant: "destructive",
       });
     });
