@@ -8,7 +8,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      'rollup': 'rollup/dist/es/rollup.browser.js',
+      
     },
   },
 })
