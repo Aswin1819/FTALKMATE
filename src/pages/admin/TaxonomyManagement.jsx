@@ -127,7 +127,7 @@ const TaxonomyManagement = () => {
   const fetchTags = async () => {
     setLoadingTags(true);
     try {
-      const res = await adminInstance.get("http://localhost:8000/api/rooms/tags/");
+      const res = await adminInstance.get("https://api.talkmate.aswinskumar.space/api/rooms/tags/");
       setTags(res.data);
     } catch (error) {
       console.error('Error fetching tags:', error);
@@ -140,7 +140,7 @@ const TaxonomyManagement = () => {
   const fetchLanguages = async () => {
     setLoadingLanguages(true);
     try {
-      const res = await adminInstance.get("http://localhost:8000/api/users/languages/");
+      const res = await adminInstance.get("https://api.talkmate.aswinskumar.space/api/users/languages/");
       setLanguages(res.data);
     } catch (error) {
       console.error('Error fetching languages:', error);
@@ -153,7 +153,7 @@ const TaxonomyManagement = () => {
   const fetchRoomTypes = async () => {
     setLoadingRoomTypes(true);
     try {
-      const res = await adminInstance.get("http://localhost:8000/api/rooms/roomtypes/");
+      const res = await adminInstance.get("https://api.talkmate.aswinskumar.space/api/rooms/roomtypes/");
       setRoomTypes(res.data);
     } catch (error) {
       console.error('Error fetching room types:', error);
@@ -166,7 +166,7 @@ const TaxonomyManagement = () => {
   const handleCreateTag = async () => {
     try {
       const tagData = { name: newTagName, color: newTagColor };
-      await adminInstance.post("http://localhost:8000/api/rooms/tags/", tagData);
+      await adminInstance.post("https://api.talkmate.aswinskumar.space/api/rooms/tags/", tagData);
       toast({
         title:"success",
         description:'Tag Created Successfully',
@@ -202,7 +202,7 @@ const TaxonomyManagement = () => {
   const handleSaveTag = async (id) => {
     try {
       const tagData = { name: editTagName, color: editTagColor };
-      await adminInstance.put(`http://localhost:8000/api/rooms/tags/${id}/`, tagData);
+      await adminInstance.put(`https://api.talkmate.aswinskumar.space/api/rooms/tags/${id}/`, tagData);
       toast({
         title:"success",
         description:'Tag Updated Successfully',
@@ -241,7 +241,7 @@ const TaxonomyManagement = () => {
 
   const confirmDeleteTag = async () => {
     try {
-      await adminInstance.delete(`http://localhost:8000/api/rooms/tags/${deleteTagModal.id}/`);
+      await adminInstance.delete(`https://api.talkmate.aswinskumar.space/api/rooms/tags/${deleteTagModal.id}/`);
       toast({
         title:"success",
         description:'Tag Deleted Successfully',
@@ -268,7 +268,7 @@ const TaxonomyManagement = () => {
   const handleCreateLanguage = async () => {
     try {
       const languageData = { name: newLanguageName, code: newLanguageCode };
-      await adminInstance.post("http://localhost:8000/api/users/languages/", languageData);
+      await adminInstance.post("https://api.talkmate.aswinskumar.space/api/users/languages/", languageData);
       toast({
         title:"success",
         description:'Language Created Successfully',
@@ -306,7 +306,7 @@ const TaxonomyManagement = () => {
   const handleSaveLanguage = async (id) => {
     try {
       const languageData = { name: editLanguageName, code: editLanguageCode };
-      await adminInstance.put(`http://localhost:8000/api/users/languages/${id}/`, languageData);
+      await adminInstance.put(`https://api.talkmate.aswinskumar.space/api/users/languages/${id}/`, languageData);
       toast({
         title:"success",
         description:'Language Updated Successfully',
@@ -347,7 +347,7 @@ const TaxonomyManagement = () => {
 
   const confirmDeleteLanguage = async () => {
     try {
-      await adminInstance.delete(`http://localhost:8000/api/users/languages/${deleteLanguageModal.id}/`);
+      await adminInstance.delete(`https://api.talkmate.aswinskumar.space/api/users/languages/${deleteLanguageModal.id}/`);
       toast({
         title:"success",
         description:'Language Deleted Successfully',
@@ -374,7 +374,7 @@ const TaxonomyManagement = () => {
   const handleCreateRoomType = async () => {
     try {
       const roomTypeData = { name: newRoomTypeName, description: newRoomTypeDescription };
-      await adminInstance.post("http://localhost:8000/api/rooms/roomtypes/", roomTypeData);
+      await adminInstance.post("https://api.talkmate.aswinskumar.space/api/rooms/roomtypes/", roomTypeData);
       toast({
         title:"success",
         description:'Room Type Created Successfully',
@@ -412,7 +412,7 @@ const TaxonomyManagement = () => {
   const handleSaveRoomType = async (id) => {
     try {
       const roomTypeData = { name: editRoomTypeName, description: editRoomTypeDescription };
-      await adminInstance.put(`http://localhost:8000/api/rooms/roomtypes/${id}/`, roomTypeData);
+      await adminInstance.put(`https://api.talkmate.aswinskumar.space/api/rooms/roomtypes/${id}/`, roomTypeData);
       toast({
         title:"success",
         description:'Room Type Updated Successfully',
@@ -453,7 +453,7 @@ const TaxonomyManagement = () => {
 
   const confirmDeleteRoomType = async () => {
     try {
-      await adminInstance.delete(`http://localhost:8000/api/rooms/roomtypes/${deleteRoomTypeModal.id}/`);
+      await adminInstance.delete(`https://api.talkmate.aswinskumar.space/api/rooms/roomtypes/${deleteRoomTypeModal.id}/`);
       toast({
         title:"success",
         description:'Room Type Deleted Successfully',
