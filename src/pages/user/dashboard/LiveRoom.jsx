@@ -170,7 +170,7 @@ const LiveRoom = () => {
       if (!token) {
         throw new Error('No access token available');
       }
-      const wsUrl = `ws://localhost:8000/ws/room/${roomId}/?token=${token}`;
+      const wsUrl = `wss://api.talkmate.aswinskumar.space/ws/room/${roomId}/?token=${token}`;
       wsRef.current = new WebSocket(wsUrl);
       wsRef.current.onopen = () => {
         console.log('WebSocket connected');

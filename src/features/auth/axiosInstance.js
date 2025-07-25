@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const axiosInstance = axios.create({
-  baseURL: 'http://127.0.0.1:8000/api/users',
+  baseURL: 'https://api.talkmate.aswinskumar.space/api/users',
   withCredentials: true,  // Required to send cookies
 });
 
@@ -61,7 +61,7 @@ axiosInstance.interceptors.response.use(
       try {
         // Create a separate axios instance for token refresh to avoid base URL issues
         const refreshResponse = await axios.post(
-          'http://127.0.0.1:8000/api/users/token/refresh/', // Full URL
+          'https://api.talkmate.aswinskumar.space/api/users/token/refresh/', // Full URL
           {}, // Empty body since token comes from cookie
           {
             withCredentials: true,

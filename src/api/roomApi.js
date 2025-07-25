@@ -8,7 +8,7 @@ export const roomApi = {
   getLiveRooms: async (params = {}) => {
     try {
       const response = await axiosInstance.get(
-        'http://127.0.0.1:8000/api/rooms/live/', { params });
+        'https://api.talkmate.aswinskumar.space/api/rooms/live/', { params });
       return response.data;
     } catch (error) {
       console.error('Error fetching live rooms:', error);
@@ -20,7 +20,7 @@ export const roomApi = {
   createRoom: async (roomData) => {
     try {
       const response = await axiosInstance.post(
-        'http://127.0.0.1:8000/api/rooms/create/', roomData);  
+        'https://api.talkmate.aswinskumar.space/api/rooms/create/', roomData);  
       return response.data;
     } catch (error) {
       console.error('Error creating room:', error);
@@ -32,7 +32,7 @@ export const roomApi = {
   getRoomDetails: async (roomId) => {
     try {
       const response = await axiosInstance.get(
-        `http://127.0.0.1:8000/api/rooms/${roomId}/`);
+        `https://api.talkmate.aswinskumar.space/api/rooms/${roomId}/`);
       return response.data;
     } catch (error) {
       console.error('Error fetching room details:', error);
@@ -44,7 +44,7 @@ export const roomApi = {
   joinRoom: async (roomId, password = '') => {
     try {
       const response = await axiosInstance.post(
-        `http://127.0.0.1:8000/api/rooms/${roomId}/join/`, {
+        `https://api.talkmate.aswinskumar.space/api/rooms/${roomId}/join/`, {
           password
         });
       return response.data;
@@ -58,7 +58,7 @@ export const roomApi = {
   leaveRoom: async (roomId) => {
     try {
       const response = await axiosInstance.post(
-        `http://127.0.0.1:8000/api/rooms/${roomId}/leave/`);
+        `https://api.talkmate.aswinskumar.space/api/rooms/${roomId}/leave/`);
       return response.data;
     } catch (error) {
       console.error('Error leaving room:', error);
@@ -70,7 +70,7 @@ export const roomApi = {
   endRoom: async (roomId) => {
     try {
       const response = await axiosInstance.post(
-        `http://127.0.0.1:8000/api/rooms/${roomId}/end/`);
+        `https://api.talkmate.aswinskumar.space/api/rooms/${roomId}/end/`);
       return response.data;
     } catch (error) {
       console.error('Error ending room:', error);
@@ -82,7 +82,7 @@ export const roomApi = {
   getRoomParticipants: async (roomId) => {
     try {
       const response = await axiosInstance.get(
-        `http://127.0.0.1:8000/api/rooms/${roomId}/participants/`);
+        `https://api.talkmate.aswinskumar.space/api/rooms/${roomId}/participants/`);
       return response.data;
     } catch (error) {
       console.error('Error fetching room participants:', error);
@@ -94,7 +94,7 @@ export const roomApi = {
   getRoomMessages: async (roomId) => {
     try {
       const response = await axiosInstance.get(
-        `http://127.0.0.1:8000/api/rooms/${roomId}/messages/`);
+        `https://api.talkmate.aswinskumar.space/api/rooms/${roomId}/messages/`);
       return response.data;
     } catch (error) {
       console.error('Error fetching room messages:', error);
@@ -106,7 +106,7 @@ export const roomApi = {
   getMyRooms: async () => {
     try {
       const response = await axiosInstance.get(
-        'http://127.0.0.1:8000/api/rooms/my-rooms/');
+        'https://api.talkmate.aswinskumar.space/api/rooms/my-rooms/');
       return response.data;
     } catch (error) {
       console.error('Error fetching my rooms:', error);
@@ -118,7 +118,7 @@ export const roomApi = {
   getTags: async () => {
     try {
       const response = await axiosInstance.get(
-        'http://127.0.0.1:8000/api/rooms/tags/');
+        'https://api.talkmate.aswinskumar.space/api/rooms/tags/');
       return response.data;
     } catch (error) {
       console.error('Error fetching tags:', error);
@@ -130,7 +130,7 @@ export const roomApi = {
   getRoomTypes: async () => {
     try {
       const response = await axiosInstance.get(
-        'http://127.0.0.1:8000/api/rooms/roomtypes/');
+        'https://api.talkmate.aswinskumar.space/api/rooms/roomtypes/');
       return response.data;
     } catch (error) {
       console.error('Error fetching room types:', error);
@@ -149,27 +149,27 @@ export const roomApi = {
   },
   reportUser: async (roomId, reportedUserId, reportData) => {
     const response = await axiosInstance.post(
-      `http://127.0.0.1:8000/api/rooms/${roomId}/report/${reportedUserId}/`,
+      `https://api.talkmate.aswinskumar.space/api/rooms/${roomId}/report/${reportedUserId}/`,
       reportData
     );
     return response.data;
   },
   editRoom: async (roomId, roomData) => {
     const response = await axiosInstance.patch(
-      `http://127.0.0.1:8000/api/rooms/${roomId}/edit/`,
+      `https://api.talkmate.aswinskumar.space/api/rooms/${roomId}/edit/`,
       roomData
     );
     return response.data;
   },
   getRecentlyJoinedRooms: async () => {
     const response = await axiosInstance.get(
-      `http://127.0.0.1:8000/api/rooms/recently-joined/`);
+      `https://api.talkmate.aswinskumar.space/api/rooms/recently-joined/`);
     return response.data;
 
   },
   getSuggestedRooms: async () => {
     const response = await axiosInstance.get(
-      `http://127.0.0.1:8000/api/rooms/suggested/`);
+      `https://api.talkmate.aswinskumar.space/api/rooms/suggested/`);
     return response.data;
 
   }

@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const adminInstance = axios.create({
-  baseURL: 'http://localhost:8000/api/admin',
+  baseURL: 'https://api.talkmate.aswinskumar.space/api/admin',
   withCredentials: true,
   headers: {
     'Accept': 'application/json',

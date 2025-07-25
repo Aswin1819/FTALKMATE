@@ -25,7 +25,7 @@ class WebSocketService {
         return;
     }
 
-    const wsUrl = `ws://127.0.0.1:8000/ws/room/${roomId}/?token=${token}`;
+    const wsUrl = `wss://api.talkmate.aswinskumar.space/ws/room/${roomId}/?token=${token}`;
     
     try {
       this.socket = new WebSocket(wsUrl);
@@ -73,7 +73,7 @@ class WebSocketService {
           console.log(`Reconnecting... Attempt ${this.reconnectAttempts}`);
           const token = await fetchAccessToken();     
           if (token && this.roomId) {
-            const wsUrl = `ws://127.0.0.1:8000/ws/room/${this.roomId}/?token=${token}`;
+            const wsUrl = `wss://api.talkmate.aswinskumar.space/ws/room/${this.roomId}/?token=${token}`;
             this.socket = new WebSocket(wsUrl);
             this.setupEventListeners();
          }
