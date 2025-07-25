@@ -79,10 +79,14 @@ const LiveRoom = () => {
   const rtcConfiguration = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' }
+      {
+        urls: 'turn:api.talkmate.aswinskumar.space:3478',
+        username: 'webrtcuser',
+        credential: 'webrtcsafe'
+      }
     ]
   };
+  
 
   // Initialize room data
   const initializeRoom = useCallback(async () => {
