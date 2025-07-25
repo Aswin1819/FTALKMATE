@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import AuthLayout from '../../components/auth/AuthLayout';
-import AuthIllustration from '../../components/auth/authIllustration.jsx'
+import AuthIllustration from '../../components/auth/authIllustration.jsx';
 import LoginForm from '../../components/auth/LoginForm';
 import RegisterForm from '../../components/auth/RegisterForm';
 
