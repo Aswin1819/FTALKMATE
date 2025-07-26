@@ -336,16 +336,16 @@ const LiveRoom = () => {
     if (iceCandidateQueueRef.current[userId]) {
       iceCandidateQueueRef.current[userId] = [];
     }
-    connectionStates.current[userId] = 'new';
+    connectionStatesRef.current[userId] = 'new';
     await createPeerConnection(userId);
   };
 
   // --- Enhanced initiateWebRTCConnection with connectionStates and signaling state validation ---
   const initiateWebRTCConnection = useCallback(async (userId) => {
-    if (connectionStates.current[userId] === 'connecting' || connectionStates.current[userId] === 'connected') {
+    if (connectionStatesRef.current[userId] === 'connecting' || connectionStatesRef.current[userId] === 'connected') {
       return;
     }
-    connectionStates.current[userId] = 'connecting';
+    connectionStatesRef.current[userId] = 'connecting';
     try {
       // Clean up before creating new connection
       await cleanupAndCreateConnection(userId);
@@ -355,7 +355,7 @@ const LiveRoom = () => {
       if (!isValidStateForOffer) {
         console.warn(`Cannot create offer, signaling state is ${peerConnection.signalingState}`);
         cleanupPeerConnection(userId);
-        connectionStates.current[userId] = 'failed';
+        connectionStatesRef.current[userId] = 'failed';
         return;
       }
       const offer = await peerConnection.createOffer({
@@ -376,7 +376,7 @@ const LiveRoom = () => {
     } catch (err) {
       console.error(`Error initiating WebRTC connection to user ${userId}:`, err);
       cleanupPeerConnection(userId);
-      connectionStates.current[userId] = 'failed';
+      connectionStatesRef.current[userId] = 'failed';
     }
   }, [shouldInitiateConnection, createPeerConnection, sendWebSocketMessage, cleanupPeerConnection]);
 
@@ -385,11 +385,16 @@ const LiveRoom = () => {
     try {
       const { from_user_id, offer } = data;
       console.log(`Received WebRTC offer from user ${from_user_id}`);
+      
+      // Only accept offers if we should not initiate (lower ID rule)
       if (shouldInitiateConnection(from_user_id)) {
         console.log(`Waiting for user ${from_user_id} to initiate connection`);
         return;
       }
+      
       let peerConnection = peerConnectionsRef.current[from_user_id];
+      
+      // Clean up existing connection if in wrong state
       if (peerConnection) {
         const signalingState = peerConnection.signalingState;
         if (signalingState !== 'stable') {
@@ -398,32 +403,41 @@ const LiveRoom = () => {
           peerConnection = null;
         }
       }
+      
+      // Create new connection if needed
       if (!peerConnection) {
         peerConnection = createPeerConnection(from_user_id);
       }
-      // --- Signaling state guard before setRemoteDescription ---
-      const isValidStateForOffer = ['stable', 'have-local-offer'].includes(peerConnection.signalingState);
-      if (!isValidStateForOffer) {
+      
+      // CRITICAL FIX: Only accept offers in 'stable' state
+      if (peerConnection.signalingState !== 'stable') {
         console.warn(`Cannot set remote description, signaling state is ${peerConnection.signalingState}`);
         cleanupPeerConnection(from_user_id);
-        connectionStates.current[from_user_id] = 'failed';
+        connectionStatesRef.current[from_user_id] = 'failed';
         return;
       }
+      
       await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
       console.log(`Set remote description for user ${from_user_id}`);
+      
       const answer = await peerConnection.createAnswer({
         offerToReceiveAudio: true,
         offerToReceiveVideo: true
       });
+      
       await peerConnection.setLocalDescription(answer);
+      
       const success = sendWebSocketMessage({
         type: 'webrtc_answer',
         target_user_id: from_user_id,
         answer: answer
       });
+      
       if (success) {
         console.log(`Sent WebRTC answer to user ${from_user_id}`);
       }
+      
+      // Process queued ICE candidates after remote description is set
       const queuedCandidates = iceCandidateQueueRef.current[from_user_id] || [];
       for (const candidate of queuedCandidates) {
         try {
@@ -434,11 +448,12 @@ const LiveRoom = () => {
         }
       }
       iceCandidateQueueRef.current[from_user_id] = [];
-      connectionStates.current[from_user_id] = 'connected';
+      connectionStatesRef.current[from_user_id] = 'connected';
+      
     } catch (err) {
       console.error(`Error handling WebRTC offer from ${data.from_user_id}:`, err);
       cleanupPeerConnection(data.from_user_id);
-      connectionStates.current[data.from_user_id] = 'failed';
+      connectionStatesRef.current[data.from_user_id] = 'failed';
     }
   }, [shouldInitiateConnection, createPeerConnection, sendWebSocketMessage, cleanupPeerConnection]);
 
@@ -447,21 +462,27 @@ const LiveRoom = () => {
     try {
       const { from_user_id, answer } = data;
       console.log(`Received WebRTC answer from user ${from_user_id}`);
+      
       const peerConnection = peerConnectionsRef.current[from_user_id];
       if (!peerConnection) {
         console.error(`No peer connection found for user ${from_user_id}`);
         return;
       }
+      
       const signalingState = peerConnection.signalingState;
       console.log(`Current signaling state: ${signalingState}`);
-      // Only handle answer if we're expecting one
-      const isValidStateForAnswer = ['have-remote-offer', 'have-local-offer'].includes(signalingState);
+      
+      // CRITICAL FIX: Accept answers in both 'have-remote-offer' and 'stable' states
+      const isValidStateForAnswer = ['have-remote-offer', 'stable'].includes(signalingState);
       if (!isValidStateForAnswer) {
         console.warn(`Received answer in wrong signaling state: ${signalingState}`);
         return;
       }
+      
       await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
       console.log(`Set remote description (answer) for user ${from_user_id}`);
+      
+      // Process queued ICE candidates after remote description is set
       const queuedCandidates = iceCandidateQueueRef.current[from_user_id] || [];
       for (const candidate of queuedCandidates) {
         try {
@@ -472,10 +493,11 @@ const LiveRoom = () => {
         }
       }
       iceCandidateQueueRef.current[from_user_id] = [];
-      connectionStates.current[from_user_id] = 'connected';
+      connectionStatesRef.current[from_user_id] = 'connected';
+      
     } catch (err) {
       console.error(`Error handling WebRTC answer from ${data.from_user_id}:`, err);
-      connectionStates.current[data.from_user_id] = 'failed';
+      connectionStatesRef.current[data.from_user_id] = 'failed';
     }
   }, []);
 
@@ -483,26 +505,36 @@ const LiveRoom = () => {
   const handleICECandidate = useCallback(async (data) => {
     try {
       const { from_user_id, candidate } = data;
-
+      
       const peerConnection = peerConnectionsRef.current[from_user_id];
       if (!peerConnection) {
         console.warn(`No peer connection found for ICE candidate from user ${from_user_id}`);
         return;
       }
-
+      
       const iceCandidate = new RTCIceCandidate(candidate);
-
-      // Check if we can add the candidate now
+      
+      // CRITICAL FIX: Only add candidates after remote description is set
       if (peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
-        await peerConnection.addIceCandidate(iceCandidate);
-        console.log(`Added ICE candidate for user ${from_user_id}`);
+        try {
+          await peerConnection.addIceCandidate(iceCandidate);
+          console.log(`Added ICE candidate for user ${from_user_id}`);
+        } catch (err) {
+          console.error('Error adding ICE candidate:', err);
+          // If adding fails, queue it for later
+          if (!iceCandidateQueueRef.current[from_user_id]) {
+            iceCandidateQueueRef.current[from_user_id] = [];
+          }
+          iceCandidateQueueRef.current[from_user_id].push(candidate);
+          console.log(`Queued ICE candidate for user ${from_user_id} due to error`);
+        }
       } else {
-        // Queue the candidate
+        // Queue the candidate until remote description is set
         if (!iceCandidateQueueRef.current[from_user_id]) {
           iceCandidateQueueRef.current[from_user_id] = [];
         }
         iceCandidateQueueRef.current[from_user_id].push(candidate);
-        console.log(`Queued ICE candidate for user ${from_user_id}`);
+        console.log(`Queued ICE candidate for user ${from_user_id} (no remote description)`);
       }
     } catch (err) {
       console.error('Error handling ICE candidate:', err);
