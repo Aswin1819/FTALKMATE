@@ -5,10 +5,11 @@ import { useNavigate } from 'react-router-dom'
 import { useDispatch } from 'react-redux';
 import { setUser } from '../features/auth/authSlice';
 const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+import { toast } from '../../hooks/use-toast';
 
 const GoogleAuth = () => {
-    const navigate = useNavigate();
-    const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   const handleSuccess = async (credentialResponse) => {
     const { credential } = credentialResponse;
@@ -17,16 +18,16 @@ const GoogleAuth = () => {
       try {
         const data = await googleSignin(credential);
         console.log('Server response:', data);
-        
+
         // Verify cookies are set
         const cookies = document.cookie.split(';').reduce((acc, cookie) => {
           const [key, value] = cookie.trim().split('=');
           acc[key] = value;
           return acc;
         }, {});
-        
+
         console.log('Cookies after Google login:', cookies);
-        
+
         if (data.user) {
           dispatch(setUser(data.user));
           console.log('User state updated:', data.user);
@@ -37,11 +38,22 @@ const GoogleAuth = () => {
         }
       } catch (error) {
         console.error('Google login failed:', error.response?.data || error.message);
-        alert('Login failed. Please try again.');
+        // alert('Login failed. Please try again.');
+        toast({
+          title: 'error',
+          description: "Login failed. Please try again",
+          variant: 'default'
+        })
       }
     } else {
       console.error('No credential received from Google');
-      alert('Google login failed. Please try again.');
+      // alert('Google login failed. Please try again.');
+      toast({
+        title: 'error',
+        description: "Google login failed. Please try again.",
+        variant: 'default'
+      })
+
     }
   };
 
@@ -51,7 +63,13 @@ const GoogleAuth = () => {
     } else {
       console.error('Google Login Error:', error);
     }
-    alert('Google login failed. Please try again.');
+    // alert('Google login failed. Please try again.');
+    toast({
+      title: 'error',
+      description: "Google login failed. Please try again.",
+      variant: 'default'
+    })
+
   };
 
   return (
