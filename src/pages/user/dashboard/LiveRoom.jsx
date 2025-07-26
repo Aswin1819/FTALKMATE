@@ -63,6 +63,11 @@ const LiveRoom = () => {
   const [following, setFollowing] = useState([]);
   const [followingLoading, setFollowingLoading] = useState({}); // userId: boolean
 
+  // Navigation protection state
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState(null);
+  const [historyEntries, setHistoryEntries] = useState(0);
+
   const reportReasons = [
     { id: 'spam', label: 'Spam or unwanted messages' },
     { id: 'misbehavior', label: 'Inappropriate behavior' },
@@ -86,6 +91,26 @@ const LiveRoom = () => {
       }
     ]
   };
+
+  // Navigation protection event handlers
+  const handleBeforeUnload = useCallback((event) => {
+    // Show browser's default confirmation dialog
+    event.preventDefault();
+    event.returnValue = 'Are you sure you want to leave the room?';
+    return 'Are you sure you want to leave the room?';
+  }, []);
+
+  const handlePopState = useCallback((event) => {
+    // Prevent actual navigation
+    event.preventDefault();
+    
+    // Show our custom modal instead
+    setShowLeaveModal(true);
+    setPendingNavigation('back');
+    
+    // Push another state to prevent immediate back navigation
+    window.history.pushState(null, '', window.location.href);
+  }, []);
   
 
   // Initialize room data
@@ -1003,8 +1028,24 @@ const LiveRoom = () => {
     }
   };
 
-  const handleLeaveRoom = useCallback(async () => {
+  const handleLeaveRoom = useCallback(async (skipConfirmation = false) => {
+    // If not skipping confirmation, show modal
+    if (!skipConfirmation) {
+      setShowLeaveModal(true);
+      setPendingNavigation('manual');
+      return;
+    }
+
     try {
+      // Clean up navigation protection
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('popstate', handlePopState);
+      
+      // Remove extra history entries
+      for (let i = 0; i < historyEntries; i++) {
+        window.history.back();
+      }
+
       // Close WebSocket
       if (wsRef.current) {
         wsRef.current.close(1000, 'User left room');
@@ -1023,12 +1064,17 @@ const LiveRoom = () => {
       // Leave room via API
       await roomApi.leaveRoom(roomId);
 
-      navigate('/dashboard/explore');
+      // Navigate away
+      if (pendingNavigation === 'back') {
+        window.history.back();
+      } else {
+        navigate('/dashboard/explore');
+      }
     } catch (err) {
       console.error('Error leaving room:', err);
       navigate('/dashboard');
     }
-  }, [roomId, navigate, cleanupPeerConnection]);
+  }, [roomId, navigate, cleanupPeerConnection, historyEntries, pendingNavigation, handleBeforeUnload, handlePopState]);
 
   // --- Enhanced renderRemoteVideo to always update srcObject and use remoteStreamsRef ---
   const renderRemoteVideo = useCallback((participant) => {
@@ -1132,6 +1178,54 @@ const LiveRoom = () => {
       iceCandidateQueueRef.current = {};
     };
   }, [initializeRoom, initializeMedia, connectWebSocket]);
+
+  // Navigation protection - handle browser back button and tab close
+  useEffect(() => {
+    let isInitialized = false;
+    
+    const initializeNavigationProtection = () => {
+      if (isInitialized) return;
+      
+      // Add multiple history entries to prevent double-back skips
+      for (let i = 0; i < 3; i++) {
+        window.history.pushState(null, '', window.location.href);
+      }
+      setHistoryEntries(3);
+      
+      // Add event listeners
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      window.addEventListener('popstate', handlePopState);
+      
+      isInitialized = true;
+    };
+
+    const cleanupNavigationProtection = () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('popstate', handlePopState);
+      
+      // Remove the extra history entries we added
+      for (let i = 0; i < historyEntries; i++) {
+        window.history.back();
+      }
+    };
+
+    // Initialize protection when room is loaded and user is ready
+    if (room && currentUser && !loading) {
+      // Small delay to ensure everything is ready
+      const timer = setTimeout(() => {
+        initializeNavigationProtection();
+      }, 1000);
+
+      return () => {
+        clearTimeout(timer);
+        cleanupNavigationProtection();
+      };
+    }
+
+    return () => {
+      cleanupNavigationProtection();
+    };
+  }, [room, currentUser, loading, historyEntries, handleBeforeUnload, handlePopState]);
 
 
   useEffect(() => {
@@ -1374,6 +1468,18 @@ const LiveRoom = () => {
     }
   };
 
+  // Modal handlers for leave confirmation
+  const handleConfirmLeave = useCallback(async () => {
+    setShowLeaveModal(false);
+    setPendingNavigation(null);
+    await handleLeaveRoom(true); // Skip confirmation
+  }, [handleLeaveRoom]);
+
+  const handleCancelLeave = useCallback(() => {
+    setShowLeaveModal(false);
+    setPendingNavigation(null);
+  }, []);
+
   // Loading and error states
   if (loading) {
     return (
@@ -1491,7 +1597,7 @@ const LiveRoom = () => {
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleLeaveRoom}
+            onClick={() => handleLeaveRoom(false)} // Show confirmation modal
             className="bg-red-500/20 text-red-400 hover:bg-red-500/40 hover:text-white border border-red-500/30 hover:border-red-500/60 transition-all duration-300 hover:scale-105 backdrop-blur-sm shadow-lg shadow-red-500/10"
           >
             <LogOut className="h-4 w-4 mr-2" />
@@ -2151,6 +2257,68 @@ const LiveRoom = () => {
           </Button>
         </DialogFooter>
       </DialogContent>
+      </Dialog>
+
+      {/* Leave Room Confirmation Modal */}
+      <Dialog open={showLeaveModal} onOpenChange={setShowLeaveModal}>
+        <DialogContent className="max-w-md mx-auto backdrop-blur-xl bg-black/90 border border-violet-500/30 shadow-2xl shadow-violet-500/20">
+          <DialogHeader className="text-center">
+            <DialogTitle className="text-xl font-bold text-white bg-gradient-to-r from-white via-violet-200 to-purple-200 bg-clip-text text-transparent">
+              Leave Room?
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="text-center space-y-4 py-4">
+            <div className="flex justify-center">
+              <motion.div
+                className="h-16 w-16 rounded-full bg-gradient-to-r from-red-500/20 to-pink-500/20 border-2 border-red-500/30 flex items-center justify-center"
+                initial={{ scale: 0, rotate: -180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: "spring", stiffness: 200, damping: 20 }}
+              >
+                <LogOut className="h-8 w-8 text-red-400" />
+              </motion.div>
+            </div>
+            
+            <div className="space-y-2">
+              <p className="text-white text-lg font-medium">
+                Are you sure you want to leave the room?
+              </p>
+              <p className="text-gray-400 text-sm">
+                You'll be disconnected from the conversation and all active connections will be closed.
+              </p>
+            </div>
+          </div>
+          
+          <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4">
+            <Button
+              onClick={handleCancelLeave}
+              variant="outline"
+              className="flex-1 bg-black/30 backdrop-blur-sm border-violet-500/30 text-white hover:bg-black/50 hover:border-violet-400 transition-all duration-300 shadow-lg shadow-violet-500/10"
+            >
+              <motion.span
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Stay in Room
+              </motion.span>
+            </Button>
+            
+            <Button
+              onClick={handleConfirmLeave}
+              className="flex-1 bg-gradient-to-r from-red-600 to-pink-600 text-white hover:from-red-700 hover:to-pink-700 transition-all duration-300 shadow-lg shadow-red-500/25 hover:shadow-red-500/40"
+            >
+              <motion.span
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="flex items-center gap-2"
+              >
+                <LogOut className="h-4 w-4" />
+                Leave Room
+              </motion.span>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
 
       {/* Hidden audio elements for remote participants */}
