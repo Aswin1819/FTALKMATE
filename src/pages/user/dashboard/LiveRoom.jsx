@@ -188,13 +188,24 @@ const LiveRoom = () => {
           console.error('Invalid WebSocket message:', event.data);
           return;
         }
-        // --- Message deduplication ---
-        const messageId = data.message_id || data.id || (data.type + '-' + (data.from_user_id || data.user_id || '') + '-' + (data.timestamp || ''));
+
+        // --- Enhanced Message Deduplication with Type-Specific Logic ---
+        const messageId = generateMessageId(data);
+        
         if (processedMessages.current.has(messageId)) {
-          //console.log('Duplicate message, skipping:', messageId);
+          console.log('Duplicate message, skipping:', messageId);
           return;
         }
+        
         processedMessages.current.add(messageId);
+        
+        // Clean up old message IDs to prevent memory leaks (keep last 1000)
+        if (processedMessages.current.size > 1000) {
+          const idsArray = Array.from(processedMessages.current);
+          processedMessages.current.clear();
+          idsArray.slice(-500).forEach(id => processedMessages.current.add(id));
+        }
+        
         handleWebSocketMessage(data);
       };
       wsRef.current.onclose = (event) => {
@@ -218,6 +229,62 @@ const LiveRoom = () => {
       setError('Failed to connect to room');
     }
   }, [roomId]);
+
+  // Type-specific message ID generation
+  const generateMessageId = (data) => {
+    const { type, user_id, from_user_id, message_id, timestamp } = data;
+    const userId = user_id || from_user_id;
+    const currentTime = timestamp || Date.now();
+    
+    switch (type) {
+      case 'chat_message':
+        // Chat messages: deduplicate based on message_id (if available) or content + user + timestamp
+        return message_id || `chat-${userId}-${data.message?.substring(0, 20)}-${currentTime}`;
+      
+      case 'hand_raised':
+        // Hand events: deduplicate based on user + action + timestamp (with 1-second window)
+        const timeWindow = Math.floor(currentTime / 1000); // 1-second window
+        return `hand-${userId}-${data.hand_raised ? 'raise' : 'lower'}-${timeWindow}`;
+      
+      case 'user_mute_toggle':
+      case 'user_video_toggle':
+        // User state changes: deduplicate based on user + state type + timestamp
+        const stateTimeWindow = Math.floor(currentTime / 1000);
+        return `state-${userId}-${type}-${stateTimeWindow}`;
+      
+      case 'webrtc_offer':
+      case 'webrtc_answer':
+        // WebRTC signaling: deduplicate based on connection pair + message type + timestamp
+        const targetUserId = data.target_user_id || data.from_user_id;
+        const connectionId = [userId, targetUserId].sort().join('-');
+        return `webrtc-${connectionId}-${type}-${currentTime}`;
+      
+      case 'ice_candidate':
+        // ICE candidates: deduplicate based on connection + candidate hash
+        const iceTargetUserId = data.target_user_id || data.from_user_id;
+        const iceConnectionId = [userId, iceTargetUserId].sort().join('-');
+        const candidateHash = data.candidate ? 
+          data.candidate.candidate?.substring(0, 20) || 
+          data.candidate.sdpMLineIndex + '-' + data.candidate.sdpMid : 
+          'unknown';
+        return `ice-${iceConnectionId}-${candidateHash}-${currentTime}`;
+      
+      case 'user_joined':
+      case 'user_left':
+        // User presence: deduplicate based on user + action + timestamp
+        const presenceTimeWindow = Math.floor(currentTime / 1000);
+        return `presence-${userId}-${type}-${presenceTimeWindow}`;
+      
+      case 'room_state':
+        // Room state: deduplicate based on room + timestamp (with 5-second window)
+        const roomTimeWindow = Math.floor(currentTime / 5000); // 5-second window
+        return `room-${data.room_id || 'unknown'}-${roomTimeWindow}`;
+      
+      default:
+        // Fallback: use original logic for unknown message types
+        return message_id || data.id || `${type}-${userId}-${currentTime}`;
+    }
+  };
 
   // Send WebSocket message safely
   const sendWebSocketMessage = useCallback((message) => {
@@ -602,8 +669,15 @@ const LiveRoom = () => {
     });
   }, [currentUser, participants]);
 
-  // --- Enhanced WebSocket message handler for user_joined and room_state ---
+  // --- Enhanced WebSocket message handler with better debugging ---
   const handleWebSocketMessage = useCallback((data) => {
+    console.log('Processing WebSocket message:', {
+      type: data.type,
+      userId: data.user_id || data.from_user_id,
+      timestamp: data.timestamp || Date.now(),
+      messageId: generateMessageId(data)
+    });
+
     switch (data.type) {
       case 'room_state':
         setParticipants(data.participants || []);
@@ -708,6 +782,11 @@ const LiveRoom = () => {
         break;
 
       case 'hand_raised':
+        console.log('Hand raised event received:', {
+          userId: data.user_id,
+          handRaised: data.hand_raised,
+          timestamp: data.timestamp
+        });
         setParticipants(prev =>
           prev.map(p =>
             p.user_id === data.user_id
