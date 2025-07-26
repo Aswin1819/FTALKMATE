@@ -539,8 +539,8 @@ const LiveRoom = () => {
       const signalingState = peerConnection.signalingState;
       console.log(`Current signaling state: ${signalingState}`);
       
-      // CRITICAL FIX: Accept answers in both 'have-remote-offer' and 'stable' states
-      const isValidStateForAnswer = ['have-remote-offer', 'stable'].includes(signalingState);
+      // CRITICAL FIX: Accept answers in both 'have-local-offer' and 'stable' states
+      const isValidStateForAnswer = ['have-local-offer', 'stable'].includes(signalingState);
       if (!isValidStateForAnswer) {
         console.warn(`Received answer in wrong signaling state: ${signalingState}`);
         return;
