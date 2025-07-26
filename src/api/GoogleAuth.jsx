@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { useDispatch } from 'react-redux';
 import { setUser } from '../features/auth/authSlice';
 const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-import { toast } from '../../hooks/use-toast';
+import { toast } from '../hooks/use-toast';
 
 const GoogleAuth = () => {
   const navigate = useNavigate();
