@@ -31,6 +31,7 @@ const LiveRoom = () => {
   const processedMessages = useRef(new Set()); // For deduplication
   const connectionStates = useRef({}); // For connection state tracking
   const shouldStopOperations = useRef(false); // Global stop flag to prevent operations after leave intent
+  const isNavigating = useRef(false); // Flag to track if navigation is in progress
 
   // Room state
   const [room, setRoom] = useState(null);
@@ -1045,6 +1046,9 @@ const LiveRoom = () => {
 
     // Set stop flag immediately to prevent all operations
     shouldStopOperations.current = true;
+    
+    // Set navigation flag to prevent any further operations
+    isNavigating.current = true;
 
     try {
       // Clean up navigation protection
@@ -1090,12 +1094,25 @@ const LiveRoom = () => {
       console.log('About to navigate. pendingNavigation:', pendingNavigation);
       console.log('shouldStopOperations.current:', shouldStopOperations.current);
       
+      // Force navigation and prevent any further operations
       if (pendingNavigation === 'back') {
         console.log('Navigating with window.history.back()');
         window.history.back();
       } else {
         console.log('Navigating with navigate("/dashboard/explore")');
-        navigate('/dashboard/explore');
+        try {
+          navigate('/dashboard/explore');
+          // Force navigation as fallback if React Router fails
+          setTimeout(() => {
+            if (window.location.pathname.includes('/room/')) {
+              console.log('React Router navigation failed, using window.location');
+              window.location.href = '/dashboard/explore';
+            }
+          }, 100);
+        } catch (navError) {
+          console.error('Navigation error:', navError);
+          window.location.href = '/dashboard/explore';
+        }
       }
     } catch (err) {
       console.error('Error in handleLeaveRoom:', err);
@@ -1180,7 +1197,7 @@ const LiveRoom = () => {
 
   // Initialize on mount
   useEffect(() => {
-    if (shouldStopOperations.current) return; // Don't initialize if leaving
+    if (shouldStopOperations.current || isNavigating.current) return; // Don't initialize if leaving or navigating
     initializeRoom();
     initializeMedia();
     connectWebSocket();
@@ -1219,7 +1236,7 @@ const LiveRoom = () => {
 
   // Navigation protection - handle browser back button and tab close
   useEffect(() => {
-    if (shouldStopOperations.current) return; // Don't setup navigation protection if leaving
+    if (shouldStopOperations.current || isNavigating.current) return; // Don't setup navigation protection if leaving or navigating
     let isInitialized = false;
     
     const initializeNavigationProtection = () => {
@@ -1268,7 +1285,7 @@ const LiveRoom = () => {
 
 
   useEffect(() => {
-    if (shouldStopOperations.current) return; // Don't fetch following if leaving
+    if (shouldStopOperations.current || isNavigating.current) return; // Don't fetch following if leaving or navigating
     const fetchFollowing = async () => {
       if (!currentUser) return;
       try {
@@ -1284,7 +1301,7 @@ const LiveRoom = () => {
 
   // Fixed WebRTC connection establishment
   useEffect(() => {
-    if (shouldStopOperations.current) return; // Don't establish WebRTC connections if leaving
+    if (shouldStopOperations.current || isNavigating.current) return; // Don't establish WebRTC connections if leaving or navigating
     if (currentUser && participants.length > 1 && mediaReady && isWebSocketOpen) {
       console.log('=== Establishing WebRTC Connections ===');
       console.log('Current user:', currentUser.id);
@@ -1342,7 +1359,7 @@ const LiveRoom = () => {
 
   // Monitor connection states and attempt reconnection
   useEffect(() => {
-    if (shouldStopOperations.current) return; // Don't monitor connections if leaving
+    if (shouldStopOperations.current || isNavigating.current) return; // Don't monitor connections if leaving or navigating
     if (!mediaReady || !isWebSocketOpen) return;
 
     const monitorConnections = setInterval(() => {
@@ -1380,7 +1397,7 @@ const LiveRoom = () => {
 
   // Debug connection states periodically
   useEffect(() => {
-    if (shouldStopOperations.current) return; // Don't debug connections if leaving
+    if (shouldStopOperations.current || isNavigating.current) return; // Don't debug connections if leaving or navigating
     const debugTimer = setInterval(() => {
       if (currentUser && participants.length > 1) {
         logConnectionStates();
@@ -1392,7 +1409,7 @@ const LiveRoom = () => {
 
   // Handle participant changes and cleanup
   useEffect(() => {
-    if (shouldStopOperations.current) return; // Don't handle participant changes if leaving
+    if (shouldStopOperations.current || isNavigating.current) return; // Don't handle participant changes if leaving or navigating
     // Clean up connections for participants who left
     const currentParticipantIds = participants.map(p => p.user_id);
     const connectedUserIds = Object.keys(peerConnectionsRef.current).map(id => parseInt(id));
@@ -1420,7 +1437,7 @@ const LiveRoom = () => {
 
   // Handle media track changes
   useEffect(() => {
-    if (shouldStopOperations.current) return; // Don't handle media track changes if leaving
+    if (shouldStopOperations.current || isNavigating.current) return; // Don't handle media track changes if leaving or navigating
     if (localStreamRef.current && mediaReady) {
       // Update all peer connections with new media tracks
       Object.values(peerConnectionsRef.current).forEach(pc => {
@@ -1523,8 +1540,9 @@ const LiveRoom = () => {
   const handleCancelLeave = useCallback(() => {
     setShowLeaveModal(false);
     setPendingNavigation(null);
-    // Reset stop flag if user cancels
+    // Reset flags if user cancels
     shouldStopOperations.current = false;
+    isNavigating.current = false;
   }, []);
 
   // Loading and error states
