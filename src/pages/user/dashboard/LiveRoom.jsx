@@ -1061,18 +1061,49 @@ const LiveRoom = () => {
         cleanupPeerConnection(userId);
       });
 
-      // Leave room via API
-      await roomApi.leaveRoom(roomId);
+      // Leave room via API - with immediate navigation on success
+      if (roomId && roomId !== 'undefined' && roomId !== 'null') {
+        try {
+          const roomIdToSend = parseInt(roomId, 10);
+          if (!isNaN(roomIdToSend)) {
+            await roomApi.leaveRoom(roomIdToSend);
+            console.log('Successfully left room via API');
+            
+            // IMMEDIATELY navigate away to prevent further API calls
+            if (pendingNavigation === 'back') {
+              window.history.back();
+            } else {
+              navigate('/dashboard/explore');
+            }
+            return; // Exit early to prevent any further execution
+          }
+        } catch (apiError) {
+          console.warn('API leave room failed, but continuing with cleanup:', apiError);
+          // Still navigate even if API fails
+        }
+      } else {
+        console.warn('Invalid roomId, skipping API call:', roomId);
+      }
 
-      // Navigate away
+      // Fallback navigation if API call was skipped or failed
       if (pendingNavigation === 'back') {
         window.history.back();
       } else {
         navigate('/dashboard/explore');
       }
     } catch (err) {
-      console.error('Error leaving room:', err);
-      navigate('/dashboard');
+      console.error('Error in handleLeaveRoom:', err);
+      // Still try to navigate even if there's an error
+      try {
+        if (pendingNavigation === 'back') {
+          window.history.back();
+        } else {
+          navigate('/dashboard/explore');
+        }
+      } catch (navError) {
+        console.error('Navigation also failed:', navError);
+        navigate('/dashboard');
+      }
     }
   }, [roomId, navigate, cleanupPeerConnection, historyEntries, pendingNavigation, handleBeforeUnload, handlePopState]);
 
