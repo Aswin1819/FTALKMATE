@@ -1087,10 +1087,14 @@ const LiveRoom = () => {
         console.warn('Invalid roomId, skipping API call:', roomId);
       }
 
-      // Navigate away immediately
+      console.log('About to navigate. pendingNavigation:', pendingNavigation);
+      console.log('shouldStopOperations.current:', shouldStopOperations.current);
+      
       if (pendingNavigation === 'back') {
+        console.log('Navigating with window.history.back()');
         window.history.back();
       } else {
+        console.log('Navigating with navigate("/dashboard/explore")');
         navigate('/dashboard/explore');
       }
     } catch (err) {
