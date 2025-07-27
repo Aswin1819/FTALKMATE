@@ -30,6 +30,7 @@ const LiveRoom = () => {
 
   const processedMessages = useRef(new Set()); // For deduplication
   const connectionStates = useRef({}); // For connection state tracking
+  const shouldStopOperations = useRef(false); // Global stop flag to prevent operations after leave intent
 
   // Room state
   const [room, setRoom] = useState(null);
@@ -94,6 +95,9 @@ const LiveRoom = () => {
 
   // Navigation protection event handlers
   const handleBeforeUnload = useCallback((event) => {
+    // Set stop flag immediately
+    shouldStopOperations.current = true;
+    
     // Show browser's default confirmation dialog
     event.preventDefault();
     event.returnValue = 'Are you sure you want to leave the room?';
@@ -101,6 +105,9 @@ const LiveRoom = () => {
   }, []);
 
   const handlePopState = useCallback((event) => {
+    // Set stop flag immediately
+    shouldStopOperations.current = true;
+    
     // Prevent actual navigation
     event.preventDefault();
     
@@ -1036,6 +1043,9 @@ const LiveRoom = () => {
       return;
     }
 
+    // Set stop flag immediately to prevent all operations
+    shouldStopOperations.current = true;
+
     try {
       // Clean up navigation protection
       window.removeEventListener('beforeunload', handleBeforeUnload);
@@ -1061,31 +1071,23 @@ const LiveRoom = () => {
         cleanupPeerConnection(userId);
       });
 
-      // Leave room via API - with immediate navigation on success
+      // Leave room via API (only if roomId is valid)
       if (roomId && roomId !== 'undefined' && roomId !== 'null') {
         try {
           const roomIdToSend = parseInt(roomId, 10);
           if (!isNaN(roomIdToSend)) {
             await roomApi.leaveRoom(roomIdToSend);
             console.log('Successfully left room via API');
-            
-            // IMMEDIATELY navigate away to prevent further API calls
-            if (pendingNavigation === 'back') {
-              window.history.back();
-            } else {
-              navigate('/dashboard/explore');
-            }
-            return; // Exit early to prevent any further execution
           }
         } catch (apiError) {
           console.warn('API leave room failed, but continuing with cleanup:', apiError);
-          // Still navigate even if API fails
+          // Don't throw - still navigate even if API fails
         }
       } else {
         console.warn('Invalid roomId, skipping API call:', roomId);
       }
 
-      // Fallback navigation if API call was skipped or failed
+      // Navigate away immediately
       if (pendingNavigation === 'back') {
         window.history.back();
       } else {
@@ -1093,7 +1095,7 @@ const LiveRoom = () => {
       }
     } catch (err) {
       console.error('Error in handleLeaveRoom:', err);
-      // Still try to navigate even if there's an error
+      // Still navigate even if there's an error
       try {
         if (pendingNavigation === 'back') {
           window.history.back();
@@ -1174,6 +1176,7 @@ const LiveRoom = () => {
 
   // Initialize on mount
   useEffect(() => {
+    if (shouldStopOperations.current) return; // Don't initialize if leaving
     initializeRoom();
     initializeMedia();
     connectWebSocket();
@@ -1212,6 +1215,7 @@ const LiveRoom = () => {
 
   // Navigation protection - handle browser back button and tab close
   useEffect(() => {
+    if (shouldStopOperations.current) return; // Don't setup navigation protection if leaving
     let isInitialized = false;
     
     const initializeNavigationProtection = () => {
@@ -1260,6 +1264,7 @@ const LiveRoom = () => {
 
 
   useEffect(() => {
+    if (shouldStopOperations.current) return; // Don't fetch following if leaving
     const fetchFollowing = async () => {
       if (!currentUser) return;
       try {
@@ -1275,6 +1280,7 @@ const LiveRoom = () => {
 
   // Fixed WebRTC connection establishment
   useEffect(() => {
+    if (shouldStopOperations.current) return; // Don't establish WebRTC connections if leaving
     if (currentUser && participants.length > 1 && mediaReady && isWebSocketOpen) {
       console.log('=== Establishing WebRTC Connections ===');
       console.log('Current user:', currentUser.id);
@@ -1332,6 +1338,7 @@ const LiveRoom = () => {
 
   // Monitor connection states and attempt reconnection
   useEffect(() => {
+    if (shouldStopOperations.current) return; // Don't monitor connections if leaving
     if (!mediaReady || !isWebSocketOpen) return;
 
     const monitorConnections = setInterval(() => {
@@ -1369,6 +1376,7 @@ const LiveRoom = () => {
 
   // Debug connection states periodically
   useEffect(() => {
+    if (shouldStopOperations.current) return; // Don't debug connections if leaving
     const debugTimer = setInterval(() => {
       if (currentUser && participants.length > 1) {
         logConnectionStates();
@@ -1380,6 +1388,7 @@ const LiveRoom = () => {
 
   // Handle participant changes and cleanup
   useEffect(() => {
+    if (shouldStopOperations.current) return; // Don't handle participant changes if leaving
     // Clean up connections for participants who left
     const currentParticipantIds = participants.map(p => p.user_id);
     const connectedUserIds = Object.keys(peerConnectionsRef.current).map(id => parseInt(id));
@@ -1407,6 +1416,7 @@ const LiveRoom = () => {
 
   // Handle media track changes
   useEffect(() => {
+    if (shouldStopOperations.current) return; // Don't handle media track changes if leaving
     if (localStreamRef.current && mediaReady) {
       // Update all peer connections with new media tracks
       Object.values(peerConnectionsRef.current).forEach(pc => {
@@ -1509,6 +1519,8 @@ const LiveRoom = () => {
   const handleCancelLeave = useCallback(() => {
     setShowLeaveModal(false);
     setPendingNavigation(null);
+    // Reset stop flag if user cancels
+    shouldStopOperations.current = false;
   }, []);
 
   // Loading and error states
