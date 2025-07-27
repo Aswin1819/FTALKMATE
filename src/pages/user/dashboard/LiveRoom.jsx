@@ -30,8 +30,6 @@ const LiveRoom = () => {
 
   const processedMessages = useRef(new Set()); // For deduplication
   const connectionStates = useRef({}); // For connection state tracking
-  const shouldStopOperations = useRef(false); // Global stop flag to prevent operations after leave intent
-  const isNavigating = useRef(false); // Flag to track if navigation is in progress
 
   // Room state
   const [room, setRoom] = useState(null);
@@ -65,11 +63,6 @@ const LiveRoom = () => {
   const [following, setFollowing] = useState([]);
   const [followingLoading, setFollowingLoading] = useState({}); // userId: boolean
 
-  // Navigation protection state
-  const [showLeaveModal, setShowLeaveModal] = useState(false);
-  const [pendingNavigation, setPendingNavigation] = useState(null);
-  const [historyEntries, setHistoryEntries] = useState(0);
-
   const reportReasons = [
     { id: 'spam', label: 'Spam or unwanted messages' },
     { id: 'misbehavior', label: 'Inappropriate behavior' },
@@ -94,31 +87,7 @@ const LiveRoom = () => {
     ]
   };
 
-  // Navigation protection event handlers
-  const handleBeforeUnload = useCallback((event) => {
-    // Set stop flag immediately
-    shouldStopOperations.current = true;
-    
-    // Show browser's default confirmation dialog
-    event.preventDefault();
-    event.returnValue = 'Are you sure you want to leave the room?';
-    return 'Are you sure you want to leave the room?';
-  }, []);
 
-  const handlePopState = useCallback((event) => {
-    // Set stop flag immediately
-    shouldStopOperations.current = true;
-    
-    // Prevent actual navigation
-    event.preventDefault();
-    
-    // Show our custom modal instead
-    setShowLeaveModal(true);
-    setPendingNavigation('back');
-    
-    // Push another state to prevent immediate back navigation
-    window.history.pushState(null, '', window.location.href);
-  }, []);
   
 
   // Initialize room data
@@ -1036,30 +1005,8 @@ const LiveRoom = () => {
     }
   };
 
-  const handleLeaveRoom = useCallback(async (skipConfirmation = false) => {
-    // If not skipping confirmation, show modal
-    if (!skipConfirmation) {
-      setShowLeaveModal(true);
-      setPendingNavigation('manual');
-      return;
-    }
-
-    // Set stop flag immediately to prevent all operations
-    shouldStopOperations.current = true;
-    
-    // Set navigation flag to prevent any further operations
-    isNavigating.current = true;
-
+  const handleLeaveRoom = useCallback(async () => {
     try {
-      // Clean up navigation protection
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('popstate', handlePopState);
-      
-      // Remove extra history entries
-      for (let i = 0; i < historyEntries; i++) {
-        window.history.back();
-      }
-
       // Close WebSocket
       if (wsRef.current) {
         wsRef.current.close(1000, 'User left room');
@@ -1075,60 +1022,21 @@ const LiveRoom = () => {
         cleanupPeerConnection(userId);
       });
 
-      // Leave room via API (only if roomId is valid)
+      // Leave room via API (fire and forget)
       if (roomId && roomId !== 'undefined' && roomId !== 'null') {
-        try {
-          const roomIdToSend = parseInt(roomId, 10);
-          if (!isNaN(roomIdToSend)) {
-            await roomApi.leaveRoom(roomIdToSend);
-            console.log('Successfully left room via API');
-          }
-        } catch (apiError) {
-          console.warn('API leave room failed, but continuing with cleanup:', apiError);
-          // Don't throw - still navigate even if API fails
+        const roomIdToSend = parseInt(roomId, 10);
+        if (!isNaN(roomIdToSend)) {
+          roomApi.leaveRoom(roomIdToSend).catch(console.warn);
         }
-      } else {
-        console.warn('Invalid roomId, skipping API call:', roomId);
       }
 
-      console.log('About to navigate. pendingNavigation:', pendingNavigation);
-      console.log('shouldStopOperations.current:', shouldStopOperations.current);
-      
-      // Force navigation and prevent any further operations
-      if (pendingNavigation === 'back') {
-        console.log('Navigating with window.history.back()');
-        window.history.back();
-      } else {
-        console.log('Navigating with navigate("/dashboard/explore")');
-        try {
-          navigate('/dashboard/explore');
-          // Force navigation as fallback if React Router fails
-          setTimeout(() => {
-            if (window.location.pathname.includes('/room/')) {
-              console.log('React Router navigation failed, using window.location');
-              window.location.href = '/dashboard/explore';
-            }
-          }, 100);
-        } catch (navError) {
-          console.error('Navigation error:', navError);
-          window.location.href = '/dashboard/explore';
-        }
-      }
+      // Navigate immediately
+      navigate('/dashboard/explore');
     } catch (err) {
       console.error('Error in handleLeaveRoom:', err);
-      // Still navigate even if there's an error
-      try {
-        if (pendingNavigation === 'back') {
-          window.history.back();
-        } else {
-          navigate('/dashboard/explore');
-        }
-      } catch (navError) {
-        console.error('Navigation also failed:', navError);
-        navigate('/dashboard');
-      }
+      navigate('/dashboard/explore');
     }
-  }, [roomId, navigate, cleanupPeerConnection, historyEntries, pendingNavigation, handleBeforeUnload, handlePopState]);
+  }, [roomId, navigate, cleanupPeerConnection]);
 
   // --- Enhanced renderRemoteVideo to always update srcObject and use remoteStreamsRef ---
   const renderRemoteVideo = useCallback((participant) => {
@@ -1197,7 +1105,6 @@ const LiveRoom = () => {
 
   // Initialize on mount
   useEffect(() => {
-    if (shouldStopOperations.current || isNavigating.current) return; // Don't initialize if leaving or navigating
     initializeRoom();
     initializeMedia();
     connectWebSocket();
@@ -1234,58 +1141,10 @@ const LiveRoom = () => {
     };
   }, [initializeRoom, initializeMedia, connectWebSocket]);
 
-  // Navigation protection - handle browser back button and tab close
-  useEffect(() => {
-    if (shouldStopOperations.current || isNavigating.current) return; // Don't setup navigation protection if leaving or navigating
-    let isInitialized = false;
-    
-    const initializeNavigationProtection = () => {
-      if (isInitialized) return;
-      
-      // Add multiple history entries to prevent double-back skips
-      for (let i = 0; i < 3; i++) {
-        window.history.pushState(null, '', window.location.href);
-      }
-      setHistoryEntries(3);
-      
-      // Add event listeners
-      window.addEventListener('beforeunload', handleBeforeUnload);
-      window.addEventListener('popstate', handlePopState);
-      
-      isInitialized = true;
-    };
 
-    const cleanupNavigationProtection = () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('popstate', handlePopState);
-      
-      // Remove the extra history entries we added
-      for (let i = 0; i < historyEntries; i++) {
-        window.history.back();
-      }
-    };
-
-    // Initialize protection when room is loaded and user is ready
-    if (room && currentUser && !loading) {
-      // Small delay to ensure everything is ready
-      const timer = setTimeout(() => {
-        initializeNavigationProtection();
-      }, 1000);
-
-      return () => {
-        clearTimeout(timer);
-        cleanupNavigationProtection();
-      };
-    }
-
-    return () => {
-      cleanupNavigationProtection();
-    };
-  }, [room, currentUser, loading, historyEntries, handleBeforeUnload, handlePopState]);
 
 
   useEffect(() => {
-    if (shouldStopOperations.current || isNavigating.current) return; // Don't fetch following if leaving or navigating
     const fetchFollowing = async () => {
       if (!currentUser) return;
       try {
@@ -1301,7 +1160,6 @@ const LiveRoom = () => {
 
   // Fixed WebRTC connection establishment
   useEffect(() => {
-    if (shouldStopOperations.current || isNavigating.current) return; // Don't establish WebRTC connections if leaving or navigating
     if (currentUser && participants.length > 1 && mediaReady && isWebSocketOpen) {
       console.log('=== Establishing WebRTC Connections ===');
       console.log('Current user:', currentUser.id);
@@ -1359,7 +1217,6 @@ const LiveRoom = () => {
 
   // Monitor connection states and attempt reconnection
   useEffect(() => {
-    if (shouldStopOperations.current || isNavigating.current) return; // Don't monitor connections if leaving or navigating
     if (!mediaReady || !isWebSocketOpen) return;
 
     const monitorConnections = setInterval(() => {
@@ -1397,7 +1254,6 @@ const LiveRoom = () => {
 
   // Debug connection states periodically
   useEffect(() => {
-    if (shouldStopOperations.current || isNavigating.current) return; // Don't debug connections if leaving or navigating
     const debugTimer = setInterval(() => {
       if (currentUser && participants.length > 1) {
         logConnectionStates();
@@ -1409,7 +1265,6 @@ const LiveRoom = () => {
 
   // Handle participant changes and cleanup
   useEffect(() => {
-    if (shouldStopOperations.current || isNavigating.current) return; // Don't handle participant changes if leaving or navigating
     // Clean up connections for participants who left
     const currentParticipantIds = participants.map(p => p.user_id);
     const connectedUserIds = Object.keys(peerConnectionsRef.current).map(id => parseInt(id));
@@ -1437,7 +1292,6 @@ const LiveRoom = () => {
 
   // Handle media track changes
   useEffect(() => {
-    if (shouldStopOperations.current || isNavigating.current) return; // Don't handle media track changes if leaving or navigating
     if (localStreamRef.current && mediaReady) {
       // Update all peer connections with new media tracks
       Object.values(peerConnectionsRef.current).forEach(pc => {
@@ -1530,20 +1384,7 @@ const LiveRoom = () => {
     }
   };
 
-  // Modal handlers for leave confirmation
-  const handleConfirmLeave = useCallback(async () => {
-    setShowLeaveModal(false);
-    setPendingNavigation(null);
-    await handleLeaveRoom(true); // Skip confirmation
-  }, [handleLeaveRoom]);
 
-  const handleCancelLeave = useCallback(() => {
-    setShowLeaveModal(false);
-    setPendingNavigation(null);
-    // Reset flags if user cancels
-    shouldStopOperations.current = false;
-    isNavigating.current = false;
-  }, []);
 
   // Loading and error states
   if (loading) {
@@ -1662,7 +1503,7 @@ const LiveRoom = () => {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => handleLeaveRoom(false)} // Show confirmation modal
+            onClick={handleLeaveRoom}
             className="bg-red-500/20 text-red-400 hover:bg-red-500/40 hover:text-white border border-red-500/30 hover:border-red-500/60 transition-all duration-300 hover:scale-105 backdrop-blur-sm shadow-lg shadow-red-500/10"
           >
             <LogOut className="h-4 w-4 mr-2" />
@@ -2324,67 +2165,7 @@ const LiveRoom = () => {
       </DialogContent>
       </Dialog>
 
-      {/* Leave Room Confirmation Modal */}
-      <Dialog open={showLeaveModal} onOpenChange={setShowLeaveModal}>
-        <DialogContent className="max-w-md mx-auto backdrop-blur-xl bg-black/90 border border-violet-500/30 shadow-2xl shadow-violet-500/20">
-          <DialogHeader className="text-center">
-            <DialogTitle className="text-xl font-bold text-white bg-gradient-to-r from-white via-violet-200 to-purple-200 bg-clip-text text-transparent">
-              Leave Room?
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="text-center space-y-4 py-4">
-            <div className="flex justify-center">
-              <motion.div
-                className="h-16 w-16 rounded-full bg-gradient-to-r from-red-500/20 to-pink-500/20 border-2 border-red-500/30 flex items-center justify-center"
-                initial={{ scale: 0, rotate: -180 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ type: "spring", stiffness: 200, damping: 20 }}
-              >
-                <LogOut className="h-8 w-8 text-red-400" />
-              </motion.div>
-            </div>
-            
-            <div className="space-y-2">
-              <p className="text-white text-lg font-medium">
-                Are you sure you want to leave the room?
-              </p>
-              <p className="text-gray-400 text-sm">
-                You'll be disconnected from the conversation and all active connections will be closed.
-              </p>
-            </div>
-          </div>
-          
-          <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4">
-            <Button
-              onClick={handleCancelLeave}
-              variant="outline"
-              className="flex-1 bg-black/30 backdrop-blur-sm border-violet-500/30 text-white hover:bg-black/50 hover:border-violet-400 transition-all duration-300 shadow-lg shadow-violet-500/10"
-            >
-              <motion.span
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                Stay in Room
-              </motion.span>
-            </Button>
-            
-            <Button
-              onClick={handleConfirmLeave}
-              className="flex-1 bg-gradient-to-r from-red-600 to-pink-600 text-white hover:from-red-700 hover:to-pink-700 transition-all duration-300 shadow-lg shadow-red-500/25 hover:shadow-red-500/40"
-            >
-              <motion.span
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-2"
-              >
-                <LogOut className="h-4 w-4" />
-                Leave Room
-              </motion.span>
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+
 
       {/* Hidden audio elements for remote participants */}
       {participants.map(p => (
