@@ -16,7 +16,7 @@ const ProtectedRoute = ({children})=>{
     );
   }
 
-  console.log("User-ProtectedRoute:",user)
+  // console.log("User-ProtectedRoute:",user)
   // Redirect to auth if no user is logged in
   if (!user) {
     return <Navigate to="/auth" replace />;

@@ -14,10 +14,10 @@ const GoogleAuth = () => {
   const handleSuccess = async (credentialResponse) => {
     const { credential } = credentialResponse;
     if (credential) {
-      console.log('Google credential received');
+      // console.log('Google credential received');
       try {
         const data = await googleSignin(credential);
-        console.log('Server response:', data);
+        // console.log('Server response:', data);
 
         // Verify cookies are set
         const cookies = document.cookie.split(';').reduce((acc, cookie) => {
@@ -26,11 +26,11 @@ const GoogleAuth = () => {
           return acc;
         }, {});
 
-        console.log('Cookies after Google login:', cookies);
+        // console.log('Cookies after Google login:', cookies);
 
         if (data.user) {
           dispatch(setUser(data.user));
-          console.log('User state updated:', data.user);
+          // console.log('User state updated:', data.user);
           navigate('/dashboard');
         } else {
           console.error('No user data in response');

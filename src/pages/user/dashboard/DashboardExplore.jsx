@@ -87,7 +87,7 @@ const DashboardExplore = () => {
         const res = await axiosInstance.get('/current-user/');
         setIsPremium(res.data.user.profile_summary.is_premium); // or res.data.profile.is_premium if nested
       } catch (error) {
-        console.log("isPremium:",isPremium);
+        // console.log("isPremium:",isPremium);
         setIsPremium(false);
       }
     };

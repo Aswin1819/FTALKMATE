@@ -92,7 +92,7 @@ const RoomManagement = () => {
       setPrevPage(null);
       setTotalCount(0);
       setCurrentPage(1);
-      console.log("Error on Fetching room list", err);
+      // console.log("Error on Fetching room list", err);
     } finally {
       setLoading(false);
     }
@@ -126,7 +126,7 @@ const RoomManagement = () => {
       setSelectedRoom(res.data);
     } catch (err) {
       setIsDetailsModalOpen(false);
-      console.log("Error fetching room details:", err)
+      // console.log("Error fetching room details:", err)
       // Optionally show toast
     }
   };
@@ -150,7 +150,7 @@ const RoomManagement = () => {
         )
       );
     } catch (err) {
-      console.log("Error fetching updated room data:", err);
+      // console.log("Error fetching updated room data:", err);
       // Optionally show toast for error
     }
   };
@@ -176,7 +176,7 @@ const RoomManagement = () => {
           variant: "success",
         });
       } catch (err) {
-        console.log("Error Deleting Room", err);
+        // console.log("Error Deleting Room", err);
         toast({
           title: "Error on Room Deletion",
           description: "Backend Error on Room Deletion.",

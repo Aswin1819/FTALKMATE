@@ -92,7 +92,7 @@ const confirmLogout = async () => {
   };
 
   const handleSeeAllNotifications = () => {
-    console.log('Navigate to all notifications');
+    // console.log('Navigate to all notifications');
   };
 
   return (

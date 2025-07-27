@@ -43,7 +43,7 @@ const OTPVerification = () => {
         description: "No email provided. Please try again.",
         variant: "destructive",
       });
-      console.log("No email");
+      // console.log("No email");
       navigate('/auth');
       return;
     }
@@ -136,7 +136,7 @@ const OTPVerification = () => {
     description,
     variant: "destructive",
   });
-  console.log(description);
+  // console.log(description);
 } finally {
       setIsVerifying(false);
     }
@@ -179,7 +179,7 @@ const OTPVerification = () => {
         description: err?.message || "Could not resend OTP",
         variant: "destructive",
       });
-      console.log(err);
+      // console.log(err);
     }
   };
 

@@ -14,7 +14,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, onLogout }) => {
   const [socialModalOpen, setSocialModalOpen] = useState(false);
   const [socialModalTab, setSocialModalTab] = useState('followers');
   const location = useLocation();
-  console.log("Sidebar rendered with user:", user);
+  // console.log("Sidebar rendered with user:", user);
 
   const refreshProfile = () => {
     axiosInstance.get('/profile/')

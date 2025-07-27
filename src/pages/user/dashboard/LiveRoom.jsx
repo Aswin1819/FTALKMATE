@@ -105,7 +105,7 @@ const LiveRoom = () => {
 
       const token = await fetchAccessToken();
       if (token) {
-        console.log("Token in LiveRoom:", token);
+        // console.log("Token in LiveRoom:", token);
         const userData = JSON.parse(atob(token.split('.')[1]));
         setCurrentUser({
           id: userData.user_id,
@@ -195,7 +195,7 @@ const LiveRoom = () => {
         const messageId = generateMessageId(data);
         
         if (processedMessages.current.has(messageId)) {
-          console.log('Duplicate message, skipping:', messageId);
+          // console.log('Duplicate message, skipping:', messageId);
           return;
         }
         
@@ -300,7 +300,7 @@ const LiveRoom = () => {
 
   // --- Enhanced createPeerConnection with improved ontrack handler and signaling guards ---
   const createPeerConnection = useCallback((userId) => {
-    console.log(`Creating peer connection for user ${userId}`);
+    // console.log(`Creating peer connection for user ${userId}`);
 
     const peerConnection = new RTCPeerConnection(rtcConfiguration);
 
@@ -310,7 +310,7 @@ const LiveRoom = () => {
     // Add local stream tracks
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => {
-        console.log(`Adding ${track.kind} track to peer connection for user ${userId}`);
+        // console.log(`Adding ${track.kind} track to peer connection for user ${userId}`);
         peerConnection.addTrack(track, localStreamRef.current);
       });
     }
@@ -318,7 +318,7 @@ const LiveRoom = () => {
     // Handle ICE candidates
     peerConnection.onicecandidate = (event) => {
       if (event.candidate) {
-        console.log(`Sending ICE candidate to user ${userId}`);
+        // console.log(`Sending ICE candidate to user ${userId}`);
         sendWebSocketMessage({
           type: 'webrtc_ice_candidate',
           target_user_id: userId,
@@ -616,9 +616,9 @@ const LiveRoom = () => {
   // --- Establish WebRTC connections for all participants (mesh) ---
   const establishWebRTCConnections = useCallback(async () => {
     if (!currentUser || !participants.length) return;
-    console.log('=== Establishing WebRTC Connections ===');
-    console.log('Current user:', currentUser.id);
-    console.log('All participants:', participants.map(p => p.user_id));
+    // console.log('=== Establishing WebRTC Connections ===');
+    // console.log('Current user:', currentUser.id);
+    // console.log('All participants:', participants.map(p => p.user_id));
 
     for (const participant of participants) {
       if (participant.user_id === currentUser.id) continue;
@@ -652,33 +652,33 @@ const LiveRoom = () => {
   }, [currentUser, participants, initiateWebRTCConnection]);
 
   // --- Connection status debugging ---
-  const logConnectionStatus = useCallback(() => {
-    if (!currentUser || !participants.length) return;
-    console.log('=== Connection Status ===');
-    console.log('Current user:', currentUser.id);
-    console.log('Participants:', participants.map(p => p.user_id));
-    participants.forEach(participant => {
-      if (participant.user_id === currentUser.id) return;
-      const connection = peerConnectionsRef.current[participant.user_id];
-      const stream = remoteStreamsRef.current[participant.user_id];
-      console.log(`User ${participant.user_id}:`, {
-        hasConnection: !!connection,
-        connectionState: connection?.connectionState,
-        signalingState: connection?.signalingState,
-        hasStream: !!stream,
-        streamTracks: stream?.getTracks()?.length || 0
-      });
-    });
-  }, [currentUser, participants]);
+  // const logConnectionStatus = useCallback(() => {
+  //   if (!currentUser || !participants.length) return;
+  //   // console.log('=== Connection Status ===');
+  //   // console.log('Current user:', currentUser.id);
+  //   // console.log('Participants:', participants.map(p => p.user_id));
+  //   participants.forEach(participant => {
+  //     if (participant.user_id === currentUser.id) return;
+  //     const connection = peerConnectionsRef.current[participant.user_id];
+  //     const stream = remoteStreamsRef.current[participant.user_id];
+  //     console.log(`User ${participant.user_id}:`, {
+  //       hasConnection: !!connection,
+  //       connectionState: connection?.connectionState,
+  //       signalingState: connection?.signalingState,
+  //       hasStream: !!stream,
+  //       streamTracks: stream?.getTracks()?.length || 0
+  //     });
+  //   });
+  // }, [currentUser, participants]);
 
   // --- Enhanced WebSocket message handler with better debugging ---
   const handleWebSocketMessage = useCallback((data) => {
-    console.log('Processing WebSocket message:', {
-      type: data.type,
-      userId: data.user_id || data.from_user_id,
-      timestamp: data.timestamp || Date.now(),
-      messageId: generateMessageId(data)
-    });
+    // console.log('Processing WebSocket message:', {
+    //   type: data.type,
+    //   userId: data.user_id || data.from_user_id,
+    //   timestamp: data.timestamp || Date.now(),
+    //   messageId: generateMessageId(data)
+    // });
 
     switch (data.type) {
       case 'room_state':
@@ -784,11 +784,11 @@ const LiveRoom = () => {
         break;
 
       case 'hand_raised':
-        console.log('Hand raised event received:', {
-          userId: data.user_id,
-          handRaised: data.hand_raised,
-          timestamp: data.timestamp
-        });
+        // console.log('Hand raised event received:', {
+        //   userId: data.user_id,
+        //   handRaised: data.hand_raised,
+        //   timestamp: data.timestamp
+        // });
         setParticipants(prev =>
           prev.map(p =>
             p.user_id === data.user_id
@@ -822,9 +822,9 @@ const LiveRoom = () => {
   // Establish WebRTC connections when participants change
   useEffect(() => {
     if (currentUser && participants.length > 1 && mediaReady && isWebSocketOpen) {
-      console.log('=== WebRTC Connection Setup ===');
-      console.log('Current user:', currentUser.id);
-      console.log('All participants:', participants.map(p => p.user_id));
+      // console.log('=== WebRTC Connection Setup ===');
+      // console.log('Current user:', currentUser.id);
+      // console.log('All participants:', participants.map(p => p.user_id));
 
       // Add delay to ensure all participants are ready
       const connectionTimer = setTimeout(() => {
@@ -1090,9 +1090,9 @@ const LiveRoom = () => {
 
   // --- Enhanced logConnectionStates to use remoteStreamsRef ---
   const logConnectionStates = useCallback(() => {
-    console.log('=== WebRTC Connection States ===');
-    console.log('Current user:', currentUser?.id);
-    console.log('All participants:', participants.map(p => p.user_id));
+    // console.log('=== WebRTC Connection States ===');
+    // console.log('Current user:', currentUser?.id);
+    // console.log('All participants:', participants.map(p => p.user_id));
 
     Object.entries(peerConnectionsRef.current).forEach(([userId, pc]) => {
       console.log(`User ${userId}: ${pc.connectionState} (signaling: ${pc.signalingState}, ice: ${pc.iceConnectionState})`);
@@ -1164,9 +1164,9 @@ const LiveRoom = () => {
   // Fixed WebRTC connection establishment
   useEffect(() => {
     if (currentUser && participants.length > 1 && mediaReady && isWebSocketOpen) {
-      console.log('=== Establishing WebRTC Connections ===');
-      console.log('Current user:', currentUser.id);
-      console.log('All participants:', participants.map(p => p.user_id));
+      // console.log('=== Establishing WebRTC Connections ===');
+      // console.log('Current user:', currentUser.id);
+      // console.log('All participants:', participants.map(p => p.user_id));
 
       // Add delay to ensure all participants are ready
       const connectionTimer = setTimeout(() => {

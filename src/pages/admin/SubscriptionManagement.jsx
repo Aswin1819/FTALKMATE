@@ -95,7 +95,7 @@ useEffect(() => {
     setLoading(true);
     try {
         const res = await adminInstance.get(`/user-subscriptions/?page=${page}`);
-        console.log('User subscriptions API response:', res.data);
+        // console.log('User subscriptions API response:', res.data);
         setSubscriptions(res.data.results || []);
         setSubscriptionsPagination({ page, count: res.data.count || 0 });
     } catch (err) {
@@ -115,8 +115,8 @@ useEffect(() => {
     const expiredSubscriptions = subscriptions.filter(sub => sub.status === 'expired').length;
     
     // Debug logging for subscription data
-    console.log('Subscriptions data:', subscriptions);
-    console.log('Active subscriptions:', subscriptions.filter(sub => sub.status === 'active'));
+    // console.log('Subscriptions data:', subscriptions);
+    // console.log('Active subscriptions:', subscriptions.filter(sub => sub.status === 'active'));
     
     const estimatedRevenue = subscriptions
         .filter(sub => sub.status === 'active')
@@ -124,7 +124,7 @@ useEffect(() => {
             // Remove ₹ symbol and parse the price
             const amountStr = sub.amount || '';
             const price = parseFloat(amountStr.replace('₹', '').replace(/[^\d.]/g, ''));
-            console.log(`Subscription ${sub.id}: amount="${amountStr}", parsed price=${price}`);
+            // console.log(`Subscription ${sub.id}: amount="${amountStr}", parsed price=${price}`);
             
             // Additional validation
             if (isNaN(price) || price < 0) {
@@ -135,7 +135,7 @@ useEffect(() => {
             return total + price;
         }, 0);
     
-    console.log('Total estimated revenue:', estimatedRevenue);
+    // console.log('Total estimated revenue:', estimatedRevenue);
 
     // Filter subscriptions based on search term and filters
     const filteredSubscriptions = subscriptions.filter(sub => {

@@ -28,6 +28,8 @@ import {
 } from '../../../api/settingsApi'; 
 import { toast } from '../../../hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import { logoutUser } from '../../../features/auth/authThunks';
 
 
 const Settings = () => {
@@ -37,6 +39,7 @@ const Settings = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
 
   // Settings states from backend
@@ -143,6 +146,7 @@ const Settings = () => {
   const handleDeleteAccount = async () => {
     try {
       await deleteAccount();
+      await dispatch(logoutUser()).unwrap();
       toast({ title: 'Success', description: 'Account deleted successfully', variant: 'success' });
       navigate('/');
     } catch (err) {

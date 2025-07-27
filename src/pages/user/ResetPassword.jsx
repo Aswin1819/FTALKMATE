@@ -61,7 +61,7 @@ const ResetPassword = () => {
     setIsLoading(true);
     try {
       // You need to get the email (from location state, search params, or redux)
-      console.log(email)
+      // console.log(email)
       if (!email) {
         toast({
           title: 'Missing Email',

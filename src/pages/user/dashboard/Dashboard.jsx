@@ -57,7 +57,7 @@ const Dashboard = () => {
   };
 
   const handleSeeAllNotifications = () => {
-    console.log('Navigate to all notifications');
+    // console.log('Navigate to all notifications');
     
     // Implementation would navigate to a notifications page
   };
@@ -75,7 +75,7 @@ const Dashboard = () => {
         description:"You are always welcome",
         variant:"success"
       })
-      console.log("User log out")
+      // console.log("User log out")
       navigate('/auth')
     }catch (err){
       toast({
@@ -83,7 +83,7 @@ const Dashboard = () => {
         description:"Somehting went wrong!!",
         variant:"error"
       })
-      console.log("logout failed")
+      // console.log("logout failed")
     }finally{
       setShowLogoutDialog(false);
     }

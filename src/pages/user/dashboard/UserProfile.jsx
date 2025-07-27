@@ -73,10 +73,10 @@ const UserProfile = () => {
 
   // Update bio
   const handleSaveBio = () => {
-  console.log("Updating bio with:", tempBio);
+  // console.log("Updating bio with:", tempBio);
   axiosInstance.patch('/profile/update/', { bio: tempBio })
     .then(res => {
-      console.log("Update bio response:", res);
+      // console.log("Update bio response:", res);
       // Try both possible response structures
       const updatedProfile = res.data;
       setProfile(updatedProfile);

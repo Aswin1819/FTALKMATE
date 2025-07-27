@@ -20,7 +20,7 @@ export const loginUser = createAsyncThunk(
   async (formData, { rejectWithValue }) => {
     try {
       const response = await axiosInstance.post('/login/', formData);
-      console.log("Response from loginUser:", response.data);
+      // console.log("Response from loginUser:", response.data);
       return response.data;
     } catch (err) {
       return rejectWithValue(err.response.data);

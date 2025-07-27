@@ -60,7 +60,7 @@ const EditRoomModal = ({ isOpen, onClose, room, onRoomUpdated }) => {
   // Pre-fill form after options are loaded and room data is available
   useEffect(() => {
     if (room && optionsLoaded) {
-      console.log('Room data:', room); // Debug log
+      // console.log('Room data:', room); // Debug log
       
       setTitle(room.title || '');
       
@@ -77,7 +77,7 @@ const EditRoomModal = ({ isOpen, onClose, room, onRoomUpdated }) => {
         const langObj = allLanguages.find(lang => lang.name === room.language);
         languageValue = langObj ? String(langObj.id) : '';
       }
-      console.log('Setting language to:', languageValue); // Debug log
+      // console.log('Setting language to:', languageValue); // Debug log
       setLanguage(languageValue);
       
       // Set room type - handle multiple possible property names
@@ -97,7 +97,7 @@ const EditRoomModal = ({ isOpen, onClose, room, onRoomUpdated }) => {
         const typeObj = allTypes.find(t => t.name === room.type);
         typeValue = typeObj ? String(typeObj.id) : '';
       }
-      console.log('Setting type to:', typeValue); // Debug log
+      // console.log('Setting type to:', typeValue); // Debug log
       setType(typeValue);
       
       // Set visibility
@@ -119,7 +119,7 @@ const EditRoomModal = ({ isOpen, onClose, room, onRoomUpdated }) => {
           return null;
         }).filter(Boolean);
       }
-      console.log('Setting tags to:', tagValues); // Debug log
+      // console.log('Setting tags to:', tagValues); // Debug log
       setTags(tagValues);
     }
   }, [room, optionsLoaded, allLanguages, allTypes, allTags]);

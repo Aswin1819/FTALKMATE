@@ -72,10 +72,10 @@ const DashboardHome = () => {
           weekly_practice_hours: res.data.weekly_practice_hours ?? 0,
         });
         setIsPremium(res.data.is_premium);
-        console.log("ispremium:",isPremium);
+        // console.log("ispremium:",isPremium);
       })
       .catch(err => {
-        console.log(err)
+        // console.log(err)
       });
   }, []);
 

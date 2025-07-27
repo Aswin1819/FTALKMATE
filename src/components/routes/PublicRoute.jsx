@@ -4,7 +4,7 @@ import { Navigate} from 'react-router-dom';
 
 const PublicRoute = ({ children }) => {
   const { user, isInitialized, loading } = useSelector((state) => state.auth);
-  console.log("User-PublicRoute:",user)
+  // console.log("User-PublicRoute:",user)
  
 
   // Show loading while checking authentication status

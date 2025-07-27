@@ -80,7 +80,7 @@ const CreateRoomDialog = ({
   mode = "create",
   isPremium = false,
 }) => {
-  console.log("isPremium prop in CreateRoomDialog:", isPremium, typeof isPremium);
+  // console.log("isPremium prop in CreateRoomDialog:", isPremium, typeof isPremium);
   const [loading, setLoading] = useState(false);
   const [selectedTags, setSelectedTags] = useState([]);
   const [tagSearchTerm, setTagSearchTerm] = useState('');

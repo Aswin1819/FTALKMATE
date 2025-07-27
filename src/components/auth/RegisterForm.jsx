@@ -71,7 +71,7 @@ const onSubmit = (values) => {
       navigate('/otp-verification', { state: { email: values.email } });
     })
     .catch((err) => {
-      console.log("Full error object:", err);
+      // console.log("Full error object:", err);
     
       let description = "Something went wrong. Please try again.";
     
