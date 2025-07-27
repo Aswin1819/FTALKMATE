@@ -1005,7 +1005,7 @@ const LiveRoom = () => {
     }
   };
 
-  const handleLeaveRoom = useCallback(async (isBrowserAction = false) => {
+  const handleLeaveRoom = useCallback(async () => {
     try {
       // Close WebSocket
       if (wsRef.current) {
@@ -1029,15 +1029,15 @@ const LiveRoom = () => {
           roomApi.leaveRoom(roomIdToSend).catch(console.warn);
         }
       }
-      if (!isBrowserAction){
+      
         // Navigate immediately
         navigate('/dashboard/explore');
-      }
+      
     } catch (err) {
       console.error('Error in handleLeaveRoom:', err);
-      if (!isBrowserAction){
+    
         navigate('/dashboard/explore');
-      }
+      
     }
   }, [roomId, navigate, cleanupPeerConnection]);
 
@@ -1322,27 +1322,7 @@ const LiveRoom = () => {
   }, [isMuted, videoEnabled, mediaReady]);
 
 
-  useEffect(() => {
-    const handleBeforeUnload = (event) => {
-      // Call handleLeaveRoom before page unloads
-      handleLeaveRoom();
-    };
-
-    const handlePopState = (event) => {
-      // Call handleLeaveRoom when back button is pressed
-      handleLeaveRoom();
-    };
-
-    // Add event listeners
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    window.addEventListener('popstate', handlePopState);
-
-    // Cleanup on unmount
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('popstate', handlePopState);
-    };
-  }, [handleLeaveRoom]);
+  
 
   // Error boundary for WebRTC operations
   const handleWebRTCError = useCallback((error, userId, operation) => {
