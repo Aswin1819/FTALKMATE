@@ -50,12 +50,12 @@ const Header = () => {
 
         {/* Desktop Actions */}
         <div className="hidden md:flex items-center space-x-3">
-          <Button variant="ghost" size="icon" className="rounded-full glass-morphism hover:glow-blue transition-all">
+          {/* <Button variant="ghost" size="icon" className="rounded-full glass-morphism hover:glow-blue transition-all">
             <Globe className="h-5 w-5 text-neon-blue" />
-          </Button>
-          <Button variant="ghost" size="icon" className="rounded-full glass-morphism hover:glow-purple transition-all">
+          </Button> */}
+          {/* <Button variant="ghost" size="icon" className="rounded-full glass-morphism hover:glow-purple transition-all">
             <Moon className="h-5 w-5 text-neon-purple" />
-          </Button>
+          </Button> */}
           <Button onClick={() => user?navigate('/dashboard'):navigate('/auth')} className="bg-neon-purple hover:bg-neon-purple/90 text-white hover:glow-purple transition-all">
             {user?'Dashboard':'Sign In'}
           </Button>
@@ -85,12 +85,12 @@ const Header = () => {
               </a>
             ))}
             <div className="flex items-center space-x-3 pt-2">
-              <Button variant="ghost" size="icon" className="rounded-full glass-morphism hover:glow-blue transition-all">
+              {/* <Button variant="ghost" size="icon" className="rounded-full glass-morphism hover:glow-blue transition-all">
                 <Globe className="h-5 w-5 text-neon-blue" />
               </Button>
               <Button variant="ghost" size="icon" className="rounded-full glass-morphism hover:glow-purple transition-all">
                 <Moon className="h-5 w-5 text-neon-purple" />
-              </Button>
+              </Button> */}
               <Button className="bg-neon-purple hover:bg-neon-purple/90 text-white hover:glow-purple transition-all">
                 Sign In
               </Button>

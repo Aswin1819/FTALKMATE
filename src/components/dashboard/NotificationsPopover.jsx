@@ -145,14 +145,14 @@ const NotificationsPopover = ({
             >
               Mark all as read
             </Button>
-            <Button 
+            {/* <Button 
               variant="ghost" 
               size="sm" 
               onClick={onSeeAllNotifications}
               className="text-xs text-neon-purple hover:text-neon-blue hover:bg-white/5"
             >
               See all
-            </Button>
+            </Button> */}
           </div>
         )}
       </PopoverContent>
