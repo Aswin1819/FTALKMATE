@@ -63,9 +63,12 @@ const onSubmit = (values) => {
   dispatch(registerUser(data))
     .unwrap()
     .then((res) => {
+      // Use the message from backend response
+      const backendMessage = res.message || "Registration successful! Please check your email for OTP verification.";
+      
       toast({
         title: "Registration Successful",
-        description: "Please check your email for OTP verification.",
+        description: backendMessage,
         variant: "default", // or "success" if you add a variant
       });
       navigate('/otp-verification', { state: { email: values.email } });

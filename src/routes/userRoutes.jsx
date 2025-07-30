@@ -13,6 +13,7 @@ import Settings from '../pages/user/dashboard/Settings';
 import DashboardExplore from '../pages/user/dashboard/DashboardExplore';
 import LiveRoom from '../pages/user/dashboard/LiveRoom';
 import Subscription from '../pages/user/Subscription';
+import PageNotFound from '../pages/error/PageNotFound';
 
 const userRoutes = [
   <Route path='/' element={<Index />} key="home" />,
@@ -46,7 +47,8 @@ const userRoutes = [
     <Route path='settings' element={<Settings/>}/>
     <Route path='explore' element={<DashboardExplore/>} />
   </Route>,
-    <Route path='room/:roomId' element={<LiveRoom/>}/>
+    <Route path='room/:roomId' element={<LiveRoom/>}/>,
+    <Route path='*' element={<PageNotFound />} key="not-found" />
 ];
 
 export default userRoutes;
