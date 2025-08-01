@@ -1,5 +1,3 @@
-// frontend/frontend/src/components/chat/ChatWindow.jsx
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { Button } from '../ui/button';
@@ -15,6 +13,7 @@ const ChatWindow = ({ selectedFriend }) => {
   const [isTyping, setIsTyping] = useState(false);
   const [loading, setLoading] = useState(false);
   const [typingTimeout, setTypingTimeout] = useState(null);
+  const [pendingMessages, setPendingMessages] = useState(new Map()); // Track pending messages
   const messagesEndRef = useRef(null);
   const user = useSelector((state) => state.auth.user);
 
@@ -26,6 +25,8 @@ const ChatWindow = ({ selectedFriend }) => {
 
     return () => {
       cleanupMessageListeners();
+      // Clear pending messages when switching chats
+      setPendingMessages(new Map());
     };
   }, [selectedFriend]);
 
@@ -37,17 +38,50 @@ const ChatWindow = ({ selectedFriend }) => {
     chatWebSocketService.on('chat_message', handleIncomingMessage);
     chatWebSocketService.on('typing_indicator', handleTypingIndicator);
     chatWebSocketService.on('chat_history', handleChatHistory);
+    chatWebSocketService.on('message_sent', handleMessageSent);
+    chatWebSocketService.on('error', handleError);
   };
 
   const cleanupMessageListeners = () => {
     chatWebSocketService.off('chat_message', handleIncomingMessage);
     chatWebSocketService.off('typing_indicator', handleTypingIndicator);
     chatWebSocketService.off('chat_history', handleChatHistory);
+    chatWebSocketService.off('message_sent', handleMessageSent);
+    chatWebSocketService.off('error', handleError);
   };
 
   const handleIncomingMessage = (data) => {
-    if (data.sender_id === selectedFriend.id) {
-      setMessages(prev => [...prev, data.message]);
+    // Handle messages from the selected friend OR from the current user
+    if (data.sender_id === selectedFriend.id || data.sender_id === user?.id) {
+      const message = data.message;
+      
+      // Remove from pending if it exists (for user's own messages)
+      if (data.sender_id === user?.id) {
+        setPendingMessages(prev => {
+          const newPending = new Map(prev);
+          // Find and remove pending message with same content and timestamp
+          for (let [key, pendingMsg] of newPending.entries()) {
+            if (pendingMsg.content === message.content) {
+              newPending.delete(key);
+              break;
+            }
+          }
+          return newPending;
+        });
+      }
+      
+      // Add message to the list if it's not already there
+      setMessages(prev => {
+        const exists = prev.some(msg => 
+          msg.id === message.id || 
+          (msg.content === message.content && msg.sender_id === message.sender_id)
+        );
+        
+        if (!exists) {
+          return [...prev, message];
+        }
+        return prev;
+      });
     }
   };
 
@@ -60,16 +94,51 @@ const ChatWindow = ({ selectedFriend }) => {
   const handleChatHistory = (data) => {
     setMessages(data.messages);
     setLoading(false);
+    // Clear any pending messages since we're loading fresh history
+    setPendingMessages(new Map());
+  };
+
+  const handleMessageSent = (data) => {
+    // Message was successfully sent and saved
+    console.log('Message sent confirmation:', data);
+    
+    // The actual message will come through handleIncomingMessage
+    // This is just a confirmation that the message was processed
+  };
+
+  const handleError = (data) => {
+    console.error('Chat error:', data);
+    // Handle errors (e.g., show notification to user)
   };
 
   const loadChatHistory = () => {
     setLoading(true);
+    setMessages([]); // Clear existing messages
+    setPendingMessages(new Map()); // Clear pending messages
     chatWebSocketService.getChatHistory(selectedFriend.id);
   };
 
   const sendMessage = () => {
     if (newMessage.trim() && selectedFriend) {
-      chatWebSocketService.sendChatMessage(selectedFriend.id, newMessage.trim());
+      const messageContent = newMessage.trim();
+      const tempId = Date.now(); // Temporary ID for optimistic update
+      
+      // Create optimistic message
+      const optimisticMessage = {
+        id: tempId,
+        content: messageContent,
+        sender_id: user.id,
+        sender_username: user.username,
+        sent_at: new Date().toISOString(),
+        message_type: 'text',
+        isPending: true
+      };
+      
+      // Add to pending messages
+      setPendingMessages(prev => new Map(prev.set(tempId, optimisticMessage)));
+      
+      // Send message through WebSocket
+      chatWebSocketService.sendChatMessage(selectedFriend.id, messageContent);
       setNewMessage('');
       
       // Clear typing indicator
@@ -84,17 +153,19 @@ const ChatWindow = ({ selectedFriend }) => {
     setNewMessage(e.target.value);
     
     // Send typing indicator
-    if (typingTimeout) {
-      clearTimeout(typingTimeout);
+    if (selectedFriend && chatWebSocketService.isConnected) {
+      if (typingTimeout) {
+        clearTimeout(typingTimeout);
+      }
+      
+      chatWebSocketService.sendTyping(selectedFriend.id, true);
+      
+      const timeout = setTimeout(() => {
+        chatWebSocketService.sendTyping(selectedFriend.id, false);
+      }, 1000);
+      
+      setTypingTimeout(timeout);
     }
-    
-    chatWebSocketService.sendTyping(selectedFriend.id, true);
-    
-    const timeout = setTimeout(() => {
-      chatWebSocketService.sendTyping(selectedFriend.id, false);
-    }, 1000);
-    
-    setTypingTimeout(timeout);
   };
 
   const handleKeyPress = (e) => {
@@ -112,6 +183,12 @@ const ChatWindow = ({ selectedFriend }) => {
     const date = new Date(timestamp);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
+
+  // Combine real messages with pending messages for display
+  const allMessages = [
+    ...messages,
+    ...Array.from(pendingMessages.values())
+  ].sort((a, b) => new Date(a.sent_at) - new Date(b.sent_at));
 
   return (
     <div className="flex flex-col h-screen bg-gray-900">
@@ -151,7 +228,7 @@ const ChatWindow = ({ selectedFriend }) => {
               </div>
             ) : (
               <div className="space-y-4">
-                {messages.map((message, index) => (
+                {allMessages.map((message, index) => (
                   <div
                     key={message.id || index}
                     className={`flex ${message.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
@@ -159,14 +236,21 @@ const ChatWindow = ({ selectedFriend }) => {
                     <div
                       className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl shadow-lg ${
                         message.sender_id === user?.id
-                          ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white'
+                          ? `bg-gradient-to-r from-violet-600 to-purple-600 text-white ${
+                              message.isPending ? 'opacity-70' : ''
+                            }`
                           : 'bg-gray-700 text-white border border-gray-600'
                       }`}
                     >
                       <p className="text-sm leading-relaxed">{message.content}</p>
-                      <p className="text-xs opacity-70 mt-2 text-right">
-                        {formatTime(message.sent_at)}
-                      </p>
+                      <div className="flex items-center justify-end gap-1 mt-2">
+                        <p className="text-xs opacity-70">
+                          {formatTime(message.sent_at)}
+                        </p>
+                        {message.isPending && (
+                          <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin opacity-70"></div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -174,7 +258,14 @@ const ChatWindow = ({ selectedFriend }) => {
                 {isTyping && (
                   <div className="flex justify-start">
                     <div className="bg-gray-700 text-white px-4 py-3 rounded-2xl border border-gray-600">
-                      <p className="text-sm italic">typing...</p>
+                      <div className="flex items-center space-x-1">
+                        <div className="flex space-x-1">
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                        </div>
+                        <span className="text-sm italic ml-2">typing...</span>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -198,7 +289,7 @@ const ChatWindow = ({ selectedFriend }) => {
           />
           <Button
             onClick={sendMessage}
-            disabled={!newMessage.trim()}
+            disabled={!newMessage.trim() || !chatWebSocketService.isConnected}
             className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 disabled:opacity-50 rounded-xl px-4"
           >
             <Send className="h-4 w-4" />
