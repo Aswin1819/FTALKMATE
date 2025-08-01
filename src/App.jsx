@@ -11,8 +11,9 @@ import globalWebSocketManager from './services/globalWebSocketManager';
 import { useSelector } from 'react-redux';
 import { useEffect } from 'react';
 
-const App = () => {
-  const {user} = useSelector((state) => state.auth.user);
+// Separate component that uses Redux hooks
+const AppContent = () => {
+  const { user } = useSelector((state) => state.auth);
   
   useEffect(() => {
     if (user){
@@ -23,19 +24,25 @@ const App = () => {
   },[user]);
 
   return (
+    <Router>
+      <AuthProvider>
+        <Routes>
+          {/* User Routes */}
+          {userRoutes}
+          {/* Admin Routes */}
+          {adminRoutes}
+        </Routes>
+        <Toaster />
+      </AuthProvider>
+    </Router>
+  );
+};
+
+const App = () => {
+  return (
     <Provider store={store}>
       <PersistGate loading={null} persistor={persistor}>
-        <Router>
-          <AuthProvider>
-            <Routes>
-              {/* User Routes */}
-              {userRoutes}
-              {/* Admin Routes */}
-              {adminRoutes}
-            </Routes>
-            <Toaster />
-          </AuthProvider>
-        </Router>
+        <AppContent />
       </PersistGate>
     </Provider>
   );
