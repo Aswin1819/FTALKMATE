@@ -7,8 +7,21 @@ import { Toaster } from './components/ui/toaster';
 import AuthProvider from './components/routes/AuthProvider'
 import userRoutes from './routes/userRoutes';
 import adminRoutes from './routes/adminRoutes';
+import globalWebSocketManager from './services/globalWebSocketManager';
+import { useSelector } from 'react-redux';
+import { useEffect } from 'react';
 
 const App = () => {
+  const {user} = useSelector((state) => state.auth.user);
+  
+  useEffect(() => {
+    if (user){
+      globalWebSocketManager.initialize();
+    }else{
+      globalWebSocketManager.disconnect();
+    }
+  },[user]);
+
   return (
     <Provider store={store}>
       <PersistGate loading={null} persistor={persistor}>

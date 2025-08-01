@@ -1,6 +1,6 @@
 import { cn } from '../../lib/utils';
 import React, { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Home, Compass, PlusSquare, User, Settings, LogOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Home, Compass, PlusSquare, User,Users, Settings, LogOut } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
@@ -44,6 +44,23 @@ const Sidebar = ({ collapsed, onToggleCollapse, onLogout }) => {
       icon: User,
       to: "/dashboard/profile",
       activePattern: /^\/dashboard\/profile$/
+    },
+    {
+      title: "Social",
+      items: [
+        {
+          name: "Chat",
+          href: "/dashboard/chat",
+          icon: MessageCircle,
+          description: "Chat with friends"
+        },
+        {
+          name: "Friends",
+          href: "/dashboard/friends", 
+          icon: Users,
+          description: "Manage friends"
+        }
+      ]
     },
     {
       label: "Settings",

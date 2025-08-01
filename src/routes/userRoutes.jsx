@@ -14,6 +14,7 @@ import DashboardExplore from '../pages/user/dashboard/DashboardExplore';
 import LiveRoom from '../pages/user/dashboard/LiveRoom';
 import Subscription from '../pages/user/Subscription';
 import PageNotFound from '../pages/error/PageNotFound';
+import Chat from '../pages/user/dashboard/Chat';
 
 const userRoutes = [
   <Route path='/' element={<Index />} key="home" />,
@@ -46,6 +47,7 @@ const userRoutes = [
     <Route path="profile" element={<UserProfile />} />
     <Route path='settings' element={<Settings/>}/>
     <Route path='explore' element={<DashboardExplore/>} />
+    <Route path="chat" element={<Chat />} />,
   </Route>,
     <Route path='room/:roomId' element={<LiveRoom/>}/>,
     <Route path='*' element={<PageNotFound />} key="not-found" />
