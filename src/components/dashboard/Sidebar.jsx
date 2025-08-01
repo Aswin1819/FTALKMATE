@@ -46,6 +46,12 @@ const Sidebar = ({ collapsed, onToggleCollapse, onLogout }) => {
       activePattern: /^\/dashboard\/profile$/
     },
     {
+      label: "Settings",
+      icon: Settings,
+      to: "/dashboard/settings",
+      activePattern: /^\/dashboard\/settings$/
+    },
+    {
       title: "Social",
       items: [
         {
@@ -54,20 +60,14 @@ const Sidebar = ({ collapsed, onToggleCollapse, onLogout }) => {
           icon: MessageSquare,
           description: "Chat with friends"
         },
-        {
-          name: "Friends",
-          href: "/dashboard/friends", 
-          icon: Users,
-          description: "Manage friends"
-        }
+        // {
+        //   name: "Friends",
+        //   href: "/dashboard/friends", 
+        //   icon: Users,
+        //   description: "Manage friends"
+        // }
       ]
     },
-    {
-      label: "Settings",
-      icon: Settings,
-      to: "/dashboard/settings",
-      activePattern: /^\/dashboard\/settings$/
-    }
   ];
 
   const openSocial = (tab) => {

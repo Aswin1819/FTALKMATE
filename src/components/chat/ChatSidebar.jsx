@@ -61,79 +61,81 @@ const ChatSidebar = ({ onSelectChat, selectedChatId }) => {
 
   return (
     <div className="w-80 h-full bg-gray-900 border-r border-gray-800 flex flex-col">
-      {/* Header */}
-      <div className="p-4 border-b border-gray-800">
+      {/* Fixed Header */}
+      <div className="flex-shrink-0 p-4 border-b border-gray-800 bg-gray-900">
         <div className="flex items-center gap-2 mb-4">
           <MessageSquare className="h-5 w-5 text-violet-400" />
           <h2 className="text-lg font-semibold text-white">Chats</h2>
         </div>
         
-        {/* Search */}
+        {/* Fixed Search Bar */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             placeholder="Search friends..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 bg-gray-800 border-gray-700 text-white placeholder-gray-400"
+            className="pl-10 bg-gray-800 border-gray-700 text-white placeholder-gray-400 focus:border-violet-500 focus:ring-violet-500/20"
           />
         </div>
       </div>
 
-      {/* Friends List */}
-      <ScrollArea className="flex-1">
-        <div className="p-2">
-          {loading ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="text-gray-400">Loading friends...</div>
-            </div>
-          ) : filteredFriends.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-32 text-gray-400">
-              <Users className="h-8 w-8 mb-2" />
-              <p>No friends found</p>
-              <p className="text-sm">Follow people to start chatting</p>
-            </div>
-          ) : (
-            filteredFriends.map((friend) => (
-              <div
-                key={friend.id}
-                onClick={() => onSelectChat(friend)}
-                className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
-                  selectedChatId === friend.id
-                    ? 'bg-violet-600/20 border border-violet-500/30'
-                    : 'hover:bg-gray-800'
-                }`}
-              >
-                <div className="relative">
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage src={friend.avatar} />
-                    <AvatarFallback className="bg-violet-600 text-white">
-                      {friend.username.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  {friend.is_online && (
-                    <div className="absolute -bottom-1 -right-1 h-3 w-3 bg-green-500 rounded-full border-2 border-gray-900" />
-                  )}
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-medium text-white truncate">
-                      {friend.username}
-                    </h3>
-                    <span className="text-xs text-gray-400">
-                      {formatLastSeen(friend.last_seen)}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-400 truncate">
-                    {friend.is_online ? 'Online' : 'Offline'}
-                  </p>
-                </div>
+      {/* Scrollable Friends List */}
+      <div className="flex-1 overflow-hidden">
+        <ScrollArea className="h-full">
+          <div className="p-2">
+            {loading ? (
+              <div className="flex items-center justify-center h-32">
+                <div className="text-gray-400">Loading friends...</div>
               </div>
-            ))
-          )}
-        </div>
-      </ScrollArea>
+            ) : filteredFriends.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-32 text-gray-400">
+                <Users className="h-8 w-8 mb-2" />
+                <p>No friends found</p>
+                <p className="text-sm">Follow people to start chatting</p>
+              </div>
+            ) : (
+              filteredFriends.map((friend) => (
+                <div
+                  key={friend.id}
+                  onClick={() => onSelectChat(friend)}
+                  className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all duration-200 ${
+                    selectedChatId === friend.id
+                      ? 'bg-violet-600/20 border border-violet-500/30 shadow-lg shadow-violet-500/10'
+                      : 'hover:bg-gray-800/50 hover:border-gray-700 border border-transparent'
+                  }`}
+                >
+                  <div className="relative">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={friend.avatar} />
+                      <AvatarFallback className="bg-violet-600 text-white">
+                        {friend.username.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    {friend.is_online && (
+                      <div className="absolute -bottom-1 -right-1 h-3 w-3 bg-green-500 rounded-full border-2 border-gray-900 shadow-lg" />
+                    )}
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-medium text-white truncate">
+                        {friend.username}
+                      </h3>
+                      <span className="text-xs text-gray-400">
+                        {formatLastSeen(friend.last_seen)}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-400 truncate">
+                      {friend.is_online ? 'Online' : 'Offline'}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </ScrollArea>
+      </div>
     </div>
   );
 };
