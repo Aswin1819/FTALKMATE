@@ -188,8 +188,40 @@ const Sidebar = ({ collapsed, onToggleCollapse, onLogout }) => {
       {/* Navigation */}
       <nav className="p-2 mt-2">
         {navItems.map((item) => {
-          const isActive = item.activePattern.test(location.pathname);
+          // Handle group items (like Social) that don't have activePattern
+          if (item.title && item.items) {
+            return (
+              <div key={item.title} className="mb-2">
+                {!collapsed && (
+                  <div className="px-3 py-2 text-xs font-medium text-white/40 uppercase tracking-wider">
+                    {item.title}
+                  </div>
+                )}
+                {item.items.map((subItem) => {
+                  const isActive = location.pathname === subItem.href;
+                  return (
+                    <Link
+                      key={subItem.name}
+                      to={subItem.href}
+                      className={cn(
+                        "flex items-center rounded-lg px-3 py-2 mb-1 transition-colors",
+                        isActive
+                          ? "bg-white/10 text-neon-purple"
+                          : "text-white/60 hover:text-white hover:bg-white/5",
+                        collapsed ? "justify-center" : ""
+                      )}
+                    >
+                      <subItem.icon className={cn("h-5 w-5", isActive ? "text-neon-purple" : "")} />
+                      {!collapsed && <span className="ml-3">{subItem.name}</span>}
+                    </Link>
+                  );
+                })}
+              </div>
+            );
+          }
 
+          // Handle regular navigation items
+          const isActive = item.activePattern.test(location.pathname);
           return (
             <Link
               key={item.label}
