@@ -24,6 +24,7 @@ import { logoutUser } from '../../../features/auth/authThunks';
 import { useDispatch , useSelector } from 'react-redux';
 import { toast } from '../../../hooks/use-toast';
 import { fetchNotifications } from '../../../api/notificationsApi';
+import globalWebSocketManager from '../../../services/globalWebSocketManager';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -33,6 +34,17 @@ const Dashboard = () => {
   const dispatch = useDispatch();
   const user = useSelector((state) => state.auth.user); 
   
+  // Initialize WebSocket connections when Dashboard mounts
+  useEffect(() => {
+    if (user) {
+      globalWebSocketManager.initialize();
+    }
+
+    // Cleanup: disconnect WebSocket when Dashboard unmounts
+    return () => {
+      globalWebSocketManager.disconnect();
+    };
+  }, [user]);
 
   useEffect(() => {
     const getNotifications = async () => {
