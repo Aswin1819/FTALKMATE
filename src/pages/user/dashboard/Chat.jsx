@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import ChatSidebar from '../../../components/chat/chatSidebar';
+import ChatSidebar from '../../../components/chat/ChatSidebar';
 import ChatWindow from '../../../components/chat/ChatWindow';
 import globalWebSocketManager from '../../../services/globalWebSocketManager';
 
