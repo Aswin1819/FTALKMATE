@@ -24,12 +24,12 @@ const Chat = () => {
   };
 
   return (
-    <div className="flex h-full bg-gray-950">
-      {/* Persistent ChatSidebar - Always visible on the left */}
+    <div className="flex h-screen bg-gray-950">
+      {/* Persistent ChatSidebar - Fixed width, full height */}
       <ChatSidebar onSelectChat={handleSelectChat} selectedChatId={selectedFriend?.id} />
       
-      {/* Chat Window Area - Always visible on the right */}
-      <div className="flex-1 flex flex-col">
+      {/* Chat Window Area - Takes remaining width, full height */}
+      <div className="flex-1 flex flex-col h-full">
         {selectedFriend ? (
           <ChatWindow selectedFriend={selectedFriend} />
         ) : (

@@ -60,15 +60,15 @@ const ChatSidebar = ({ onSelectChat, selectedChatId }) => {
   };
 
   return (
-    <div className="w-80 h-full bg-gray-900 border-r border-gray-800 flex flex-col">
-      {/* Fixed Header */}
+    <div className="w-80 h-screen bg-gray-900 border-r border-gray-800 flex flex-col">
+      {/* Fixed Header - Sticky at top */}
       <div className="flex-shrink-0 p-4 border-b border-gray-800 bg-gray-900">
         <div className="flex items-center gap-2 mb-4">
           <MessageSquare className="h-5 w-5 text-violet-400" />
           <h2 className="text-lg font-semibold text-white">Chats</h2>
         </div>
         
-        {/* Fixed Search Bar */}
+        {/* Fixed Search Bar - Sticky below header */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
@@ -80,7 +80,7 @@ const ChatSidebar = ({ onSelectChat, selectedChatId }) => {
         </div>
       </div>
 
-      {/* Scrollable Friends List */}
+      {/* Scrollable Friends List - Takes remaining height */}
       <div className="flex-1 overflow-hidden">
         <ScrollArea className="h-full">
           <div className="p-2">

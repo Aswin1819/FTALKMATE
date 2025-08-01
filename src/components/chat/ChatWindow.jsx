@@ -114,8 +114,8 @@ const ChatWindow = ({ selectedFriend }) => {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-gray-900">
-      {/* Chat Header */}
+    <div className="flex flex-col h-screen bg-gray-900">
+      {/* Chat Header - Fixed at top */}
       <div className="flex items-center gap-3 p-4 border-b border-gray-800 bg-gray-900 flex-shrink-0">
         <div className="relative">
           <Avatar className="h-10 w-10">
@@ -141,7 +141,7 @@ const ChatWindow = ({ selectedFriend }) => {
         </Button>
       </div>
 
-      {/* Messages Area */}
+      {/* Messages Area - Takes remaining height, scrollable */}
       <div className="flex-1 overflow-hidden">
         <ScrollArea className="h-full">
           <div className="p-4">
@@ -186,7 +186,7 @@ const ChatWindow = ({ selectedFriend }) => {
         </ScrollArea>
       </div>
 
-      {/* Message Input */}
+      {/* Message Input - Fixed at bottom */}
       <div className="p-4 border-t border-gray-800 bg-gray-900 flex-shrink-0">
         <div className="flex gap-3">
           <Input
