@@ -1,6 +1,6 @@
 import { cn } from '../../lib/utils';
 import React, { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Home, Compass, PlusSquare, User,Users, Settings, LogOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Home, Compass, PlusSquare, User,Users, Settings, LogOut, MessageSquare } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
@@ -51,7 +51,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, onLogout }) => {
         {
           name: "Chat",
           href: "/dashboard/chat",
-          icon: MessageCircle,
+          icon: MessageSquare,
           description: "Chat with friends"
         },
         {

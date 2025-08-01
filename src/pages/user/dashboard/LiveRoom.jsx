@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '../../../components/ui/avatar';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
-import { Mic, MicOff, Video, VideoOff, MessageCircle, X, Send, LogOut, HandMetal, PhoneOff, Users, FolderOpen } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, MessageSquare, X, Send, LogOut, HandMetal, PhoneOff, Users, FolderOpen } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { toast } from '../../../hooks/use-toast';
 import roomApi from '../../../api/roomApi';
@@ -1781,7 +1781,7 @@ const LiveRoom = () => {
               <div className="p-4 border-b border-violet-500/20 bg-black/20 backdrop-blur-sm">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
-                    <MessageCircle className="h-5 w-5 text-violet-400" />
+                    <MessageSquare className="h-5 w-5 text-violet-400" />
                     <h3 className="font-semibold text-white">Live Chat</h3>
                     <div className="px-2 py-1 bg-violet-500/20 backdrop-blur-sm rounded-full border border-violet-500/30 shadow-lg shadow-violet-500/10">
                       <span className="text-violet-300 text-xs">{chatMessages.length}</span>
@@ -1969,7 +1969,7 @@ const LiveRoom = () => {
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
           >
-            <MessageCircle className="h-5 w-5" />
+            <MessageSquare className="h-5 w-5" />
             {unreadCount > 0 && !isChatOpen && (
               <motion.div
                 className="absolute -top-1 -right-1 h-5 w-5 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg shadow-red-500/30"
@@ -2014,7 +2014,7 @@ const LiveRoom = () => {
             >
               <div className="p-4 border-b border-violet-500/20 flex items-center justify-between bg-black/20 backdrop-blur-sm">
                 <div className="flex items-center space-x-2">
-                  <MessageCircle className="h-5 w-5 text-violet-400" />
+                  <MessageSquare className="h-5 w-5 text-violet-400" />
                   <h3 className="font-semibold text-white text-lg">Chat</h3>
                   <div className="px-2 py-1 bg-violet-500/20 backdrop-blur-sm rounded-full border border-violet-500/30 shadow-lg shadow-violet-500/10">
                     <span className="text-violet-300 text-xs">{chatMessages.length}</span>
@@ -2090,7 +2090,7 @@ const LiveRoom = () => {
 
                 {chatMessages.length === 0 && (
                   <div className="flex flex-col items-center justify-center h-full text-center">
-                    <MessageCircle className="h-12 w-12 text-violet-400/50 mb-4" />
+                    <MessageSquare className="h-12 w-12 text-violet-400/50 mb-4" />
                     <p className="text-white/70 text-lg font-medium mb-2">No messages yet</p>
                     <p className="text-white/50 text-sm">Be the first to say something!</p>
                   </div>

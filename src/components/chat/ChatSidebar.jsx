@@ -7,7 +7,7 @@ import { Input } from '../ui/input';
 import { ScrollArea } from '../ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Badge } from '../ui/badge';
-import { Search, MessageCircle, Users } from 'lucide-react';
+import { Search, Users, MessageSquare } from 'lucide-react';
 import chatWebSocketService from '../../services/chatWebSocketService';
 
 const ChatSidebar = ({ onSelectChat, selectedChatId }) => {
@@ -64,7 +64,7 @@ const ChatSidebar = ({ onSelectChat, selectedChatId }) => {
       {/* Header */}
       <div className="p-4 border-b border-gray-800">
         <div className="flex items-center gap-2 mb-4">
-          <MessageCircle className="h-5 w-5 text-violet-400" />
+          <MessageSquare className="h-5 w-5 text-violet-400" />
           <h2 className="text-lg font-semibold text-white">Chats</h2>
         </div>
         
