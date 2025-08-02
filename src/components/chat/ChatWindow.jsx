@@ -55,13 +55,17 @@ const ChatWindow = ({ selectedFriend }) => {
     if (data.sender_id === selectedFriend.id || data.sender_id === user?.id) {
       const message = data.message;
       
+      console.log('Received message:', message); // Debug log
+      
       // Remove from pending if it exists (for user's own messages)
       if (data.sender_id === user?.id) {
         setPendingMessages(prev => {
           const newPending = new Map(prev);
-          // Find and remove pending message with same content and timestamp
+          // Find and remove pending message with same content
           for (let [key, pendingMsg] of newPending.entries()) {
-            if (pendingMsg.content === message.content) {
+            if (pendingMsg.content === message.content && 
+                pendingMsg.sender_id === message.sender_id) {
+              console.log('Removing pending message:', key); // Debug log
               newPending.delete(key);
               break;
             }
@@ -74,10 +78,13 @@ const ChatWindow = ({ selectedFriend }) => {
       setMessages(prev => {
         const exists = prev.some(msg => 
           msg.id === message.id || 
-          (msg.content === message.content && msg.sender_id === message.sender_id)
+          (msg.content === message.content && 
+           msg.sender_id === message.sender_id &&
+           Math.abs(new Date(msg.sent_at) - new Date(message.sent_at)) < 5000) // Within 5 seconds
         );
         
         if (!exists) {
+          console.log('Adding new message to list'); // Debug log
           return [...prev, message];
         }
         return prev;
@@ -99,11 +106,15 @@ const ChatWindow = ({ selectedFriend }) => {
   };
 
   const handleMessageSent = (data) => {
-    // Message was successfully sent and saved
+    // Message was successfully sent and saved to database
     console.log('Message sent confirmation:', data);
     
-    // The actual message will come through handleIncomingMessage
-    // This is just a confirmation that the message was processed
+    // Remove all pending messages since we got confirmation
+    // The actual message should come through handleIncomingMessage
+    setPendingMessages(prev => {
+      console.log('Clearing pending messages after confirmation');
+      return new Map();
+    });
   };
 
   const handleError = (data) => {
@@ -119,9 +130,9 @@ const ChatWindow = ({ selectedFriend }) => {
   };
 
   const sendMessage = () => {
-    if (newMessage.trim() && selectedFriend) {
+    if (newMessage.trim() && selectedFriend && chatWebSocketService.isConnected) {
       const messageContent = newMessage.trim();
-      const tempId = Date.now(); // Temporary ID for optimistic update
+      const tempId = `temp_${Date.now()}_${Math.random()}`; // More unique temp ID
       
       // Create optimistic message
       const optimisticMessage = {
@@ -134,11 +145,25 @@ const ChatWindow = ({ selectedFriend }) => {
         isPending: true
       };
       
+      console.log('Creating optimistic message:', optimisticMessage); // Debug log
+      
       // Add to pending messages
       setPendingMessages(prev => new Map(prev.set(tempId, optimisticMessage)));
       
       // Send message through WebSocket
-      chatWebSocketService.sendChatMessage(selectedFriend.id, messageContent);
+      const success = chatWebSocketService.sendChatMessage(selectedFriend.id, messageContent);
+      
+      if (!success) {
+        // Remove pending message if send failed
+        setPendingMessages(prev => {
+          const newPending = new Map(prev);
+          newPending.delete(tempId);
+          return newPending;
+        });
+        console.error('Failed to send message');
+        return;
+      }
+      
       setNewMessage('');
       
       // Clear typing indicator
@@ -146,6 +171,19 @@ const ChatWindow = ({ selectedFriend }) => {
         clearTimeout(typingTimeout);
       }
       chatWebSocketService.sendTyping(selectedFriend.id, false);
+      
+      // Set a timeout to remove pending message if no confirmation received
+      setTimeout(() => {
+        setPendingMessages(prev => {
+          if (prev.has(tempId)) {
+            console.log('Timeout: removing pending message', tempId);
+            const newPending = new Map(prev);
+            newPending.delete(tempId);
+            return newPending;
+          }
+          return prev;
+        });
+      }, 10000); // 10 second timeout
     }
   };
 
