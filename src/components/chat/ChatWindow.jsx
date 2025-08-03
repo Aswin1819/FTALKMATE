@@ -98,11 +98,12 @@ const ChatWindow = ({ selectedFriend }) => {
   const handleMessageSent = (data) => {
     console.log('Message sent confirmation:', data);
 
+    const currentUserId = user?.user_id || user?.id;
     // Convert pending message to real message
     const realMessage = {
       id: data.message_id,
       content: currentMessageRef.current,
-      sender_id: user.id,
+      sender_id: currentUserId,
       sender_username: user.username,
       sent_at: data.timestamp,
       message_type: 'text',
@@ -159,12 +160,13 @@ const ChatWindow = ({ selectedFriend }) => {
 
     // Store current message for confirmation
     currentMessageRef.current = messageContent;
+    const currentUserId = user?.user_id || user?.id;
 
     // Create optimistic message for immediate display
     const optimisticMessage = {
       id: tempId,
       content: messageContent,
-      sender_id: user.id,
+      sender_id: currentUserId,
       sender_username: user.username,
       sent_at: new Date().toISOString(),
       message_type: 'text',
@@ -258,7 +260,7 @@ const ChatWindow = ({ selectedFriend }) => {
   ].sort((a, b) => new Date(a.sent_at) - new Date(b.sent_at));
 
   console.log('Debug message display:', {
-    currentUserId: user?.id,
+    currentUserId: user?.user_id || user?.id,
     selectedFriendId: selectedFriend?.id,
     allMessages: allMessages.map(msg => ({
       id: msg.id,
@@ -327,7 +329,7 @@ const ChatWindow = ({ selectedFriend }) => {
                     const isFromCurrentUser = Number(message.sender_id) === Number(currentUserId);
 
                     // Debug logging (remove this in production)
-                    console.log(`Message ${message.id}: sender_id=${message.sender_id} (${typeof message.sender_id}), user.id=${user?.id} (${typeof user?.id}), isFromCurrentUser=${isFromCurrentUser}`);
+                    console.log(`Message ${message.id}: sender_id=${message.sender_id} (${typeof message.sender_id}), currentUserId=${currentUserId} (${typeof currentUserId}), isFromCurrentUser=${isFromCurrentUser}`);
 
                     return (
                       <div
