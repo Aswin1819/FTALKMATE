@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -15,8 +15,20 @@ const ChatWindow = ({ selectedFriend }) => {
   const [typingTimeout, setTypingTimeout] = useState(null);
   const [pendingMessages, setPendingMessages] = useState(new Map());
   const messagesEndRef = useRef(null);
-  const user = useSelector((state) => state.auth.user);
-  const currentMessageRef = useRef(''); // Store current message for confirmation
+  const currentMessageRef = useRef(''); 
+  const userString = useSelector((state) => state.auth.user);
+  const user = useMemo(() => {
+    if(!userString) return null;
+    try{
+        const userData = typeof userString === 'string' ? JSON.parse(userString): userString;
+        console.log("Parsed user data:",userData)
+        return userData;
+    }catch(error){
+      console.error("Error on parsing userData",error)
+      return null;
+    }
+  },[userString]);
+
 
   useEffect(() => {
     if (selectedFriend) {
@@ -311,8 +323,8 @@ const ChatWindow = ({ selectedFriend }) => {
                   </div>
                 ) : (
                   allMessages.map((message, index) => {
-                    // Convert both to numbers for comparison to handle type mismatches
-                    const isFromCurrentUser = Number(message.sender_id) === Number(user?.id);
+                    const currentUserId = user?.user_id || user?.id;
+                    const isFromCurrentUser = Number(message.sender_id) === Number(currentUserId);
 
                     // Debug logging (remove this in production)
                     console.log(`Message ${message.id}: sender_id=${message.sender_id} (${typeof message.sender_id}), user.id=${user?.id} (${typeof user?.id}), isFromCurrentUser=${isFromCurrentUser}`);
