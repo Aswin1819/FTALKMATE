@@ -58,7 +58,7 @@ const ChatWindow = ({ selectedFriend }) => {
     if (data.sender_id === selectedFriend?.id) {
       const message = data.message;
       console.log('Received message from friend:', message);
-      
+
       setMessages(prev => {
         // Check if message already exists
         const exists = prev.some(msg => msg.id === message.id);
@@ -85,7 +85,7 @@ const ChatWindow = ({ selectedFriend }) => {
 
   const handleMessageSent = (data) => {
     console.log('Message sent confirmation:', data);
-    
+
     // Convert pending message to real message
     const realMessage = {
       id: data.message_id,
@@ -114,22 +114,22 @@ const ChatWindow = ({ selectedFriend }) => {
 
   const handleError = (data) => {
     console.error('Chat error:', data);
-    
+
     // Clear pending messages on error
     setPendingMessages(new Map());
     currentMessageRef.current = '';
-    
+
     // You can show error notification here
     // showNotification('Error sending message', 'error');
   };
 
   const loadChatHistory = () => {
     if (!selectedFriend) return;
-    
+
     setLoading(true);
     setMessages([]);
     setPendingMessages(new Map());
-    
+
     const success = chatWebSocketService.getChatHistory(selectedFriend.id);
     if (!success) {
       setLoading(false);
@@ -144,7 +144,7 @@ const ChatWindow = ({ selectedFriend }) => {
 
     const messageContent = newMessage.trim();
     const tempId = `temp_${Date.now()}_${Math.random()}`;
-    
+
     // Store current message for confirmation
     currentMessageRef.current = messageContent;
 
@@ -160,13 +160,13 @@ const ChatWindow = ({ selectedFriend }) => {
     };
 
     console.log('Creating optimistic message:', optimisticMessage);
-    
+
     // Add to pending messages
     setPendingMessages(prev => new Map(prev.set(tempId, optimisticMessage)));
 
     // Send message through WebSocket
     const success = chatWebSocketService.sendChatMessage(selectedFriend.id, messageContent);
-    
+
     if (!success) {
       // Remove pending message if send failed
       setPendingMessages(prev => {
@@ -206,19 +206,19 @@ const ChatWindow = ({ selectedFriend }) => {
 
   const handleTyping = (e) => {
     setNewMessage(e.target.value);
-    
+
     // Send typing indicator
     if (selectedFriend && chatWebSocketService.isConnected) {
       if (typingTimeout) {
         clearTimeout(typingTimeout);
       }
-      
+
       chatWebSocketService.sendTyping(selectedFriend.id, true);
-      
+
       const timeout = setTimeout(() => {
         chatWebSocketService.sendTyping(selectedFriend.id, false);
       }, 1000);
-      
+
       setTypingTimeout(timeout);
     }
   };
@@ -245,6 +245,17 @@ const ChatWindow = ({ selectedFriend }) => {
     ...Array.from(pendingMessages.values())
   ].sort((a, b) => new Date(a.sent_at) - new Date(b.sent_at));
 
+  console.log('Debug message display:', {
+    currentUserId: user?.id,
+    selectedFriendId: selectedFriend?.id,
+    allMessages: allMessages.map(msg => ({
+      id: msg.id,
+      senderId: msg.sender_id,
+      content: msg.content,
+      isFromCurrentUser: msg.sender_id === user?.id
+    }))
+  });
+
   if (!selectedFriend) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-900">
@@ -268,14 +279,14 @@ const ChatWindow = ({ selectedFriend }) => {
             <div className="absolute -bottom-1 -right-1 h-3 w-3 bg-green-500 rounded-full border-2 border-gray-900 shadow-lg" />
           )}
         </div>
-        
+
         <div className="flex-1">
           <h3 className="font-semibold text-white text-lg">{selectedFriend?.username}</h3>
           <p className="text-sm text-gray-400">
             {selectedFriend?.is_online ? 'Online' : 'Offline'}
           </p>
         </div>
-        
+
         <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white hover:bg-gray-800">
           <MoreVertical className="h-5 w-5" />
         </Button>
@@ -299,49 +310,63 @@ const ChatWindow = ({ selectedFriend }) => {
                     </div>
                   </div>
                 ) : (
-                  allMessages.map((message, index) => (
-                    <div
-                      key={message.id || index}
-                      className={`flex ${message.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
-                    >
+                  allMessages.map((message, index) => {
+                    // Convert both to numbers for comparison to handle type mismatches
+                    const isFromCurrentUser = Number(message.sender_id) === Number(user?.id);
+
+                    // Debug logging (remove this in production)
+                    console.log(`Message ${message.id}: sender_id=${message.sender_id} (${typeof message.sender_id}), user.id=${user?.id} (${typeof user?.id}), isFromCurrentUser=${isFromCurrentUser}`);
+
+                    return (
                       <div
-                        className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl shadow-lg ${
-                          message.sender_id === user?.id
-                            ? `bg-gradient-to-r from-violet-600 to-purple-600 text-white ${
-                                message.isPending ? 'opacity-70' : ''
-                              }`
-                            : 'bg-gray-700 text-white border border-gray-600'
-                        }`}
+                        key={message.id || index}
+                        className={`flex ${isFromCurrentUser ? 'justify-end' : 'justify-start'}`}
                       >
-                        <p className="text-sm leading-relaxed">{message.content}</p>
-                        <div className="flex items-center justify-end gap-1 mt-2">
-                          <p className="text-xs opacity-70">
-                            {formatTime(message.sent_at)}
-                          </p>
-                          {message.isPending && (
-                            <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin opacity-70"></div>
-                          )}
+                        <div className="flex flex-col">
+                          {/* Message bubble */}
+                          <div
+                            className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl shadow-lg ${isFromCurrentUser
+                                ? `bg-gradient-to-r from-violet-600 to-purple-600 text-white ${message.isPending ? 'opacity-70' : ''
+                                }`
+                                : 'bg-gray-700 text-white border border-gray-600'
+                              }`}
+                          >
+                            <p className="text-sm leading-relaxed">{message.content}</p>
+                            <div className="flex items-center justify-end gap-1 mt-2">
+                              <p className="text-xs opacity-70">
+                                {formatTime(message.sent_at)}
+                              </p>
+                              {message.isPending && (
+                                <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin opacity-70"></div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Debug info - remove this in production */}
+                          <div className={`text-xs opacity-50 mt-1 ${isFromCurrentUser ? 'text-right' : 'text-left'}`}>
+                            From: {message.sender_username} (ID: {message.sender_id}) - {isFromCurrentUser ? 'You' : 'Friend'}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
-                
+
                 {isTyping && (
                   <div className="flex justify-start">
                     <div className="bg-gray-700 text-white px-4 py-3 rounded-2xl border border-gray-600">
                       <div className="flex items-center space-x-1">
                         <div className="flex space-x-1">
                           <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                         </div>
                         <span className="text-sm italic ml-2">{selectedFriend?.username} is typing...</span>
                       </div>
                     </div>
                   </div>
                 )}
-                
+
                 <div ref={messagesEndRef} />
               </div>
             )}
@@ -368,7 +393,7 @@ const ChatWindow = ({ selectedFriend }) => {
             <Send className="h-4 w-4" />
           </Button>
         </div>
-        
+
         {!chatWebSocketService.isConnected && (
           <div className="text-xs text-red-400 mt-2 text-center">
             Connection lost. Trying to reconnect...
